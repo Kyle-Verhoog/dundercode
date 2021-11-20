@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.eggs
+*.egg-info
+.mypy_cache/
+*.manifest
+*.spec
+.idea/
+pip-log.txt
+pip-delete-this-directory.txt
+
+.venv/
+transcript.csv

@@ -1,0 +1,14 @@
+__code__
+
+fun project related to the office
+
+
+dev:
+    pip install -e .
+    python -m dundercode
+
+
+to encrypt/decrypt the data:
+
+    KEY=... python -m scripts/encrypt > output
+    KEY=... python -m scripts/decrypt > output
