@@ -10,5 +10,5 @@ dev:
 
 to encrypt/decrypt the data:
 
-    KEY=... python -m scripts/encrypt > output
-    KEY=... python -m scripts/decrypt > output
+    KEY=... python -m scripts.encrypt > output
+    KEY=... python -m scripts.decrypt > output
