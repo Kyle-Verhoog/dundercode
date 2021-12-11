@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from yattag import Doc
 
+from .html import Html
 from . import data
 
 app = FastAPI()
@@ -12,6 +13,45 @@ app = FastAPI()
 
 def _fmt_chars(chars: List[str]):
     return "%s and %s" % (",".join(chars[0:-1]), chars[-1]) if len(chars) > 1 else chars[0]
+
+
+@app.get("/")
+async def query():
+    start_t = time.time_ns()
+    h = Html(attrs={
+        "direction": "ltr",
+    })
+    with h.tag("head"):
+        with h.el("script"):
+            h.text("""
+function doSearch(query) {
+    location.href = location.href + "q/" + query;
+}
+
+function searchInput(el) {
+    if (event.key === 'Enter') {
+        doSearch(el.value);
+    }
+}
+function searchButton() {
+    var el = document.getElementById("search-text");
+    doSearch(el.value);
+}
+""")
+        with h.el("title"):
+            h.text("dundercode")
+    with h.tag("body"):
+        with h.tag("h1"):
+            h.text("dundercode")
+        with h.tag("h3"):
+            h.text("search for quote")
+        with h.tag("input", id="search-text", placeholder="quote", onkeydown="searchInput(this)"):
+            pass
+        with h.tag("button", onclick="searchButton()"):
+            h.text("search")
+    with h.tag("footer"):
+        h.text(f"page rendered in {(time.time_ns() - start_t)/1e3}us")
+    return HTMLResponse(h.render())
 
 
 @app.get("/q/")
@@ -28,6 +68,10 @@ async def root(
     ):
     start_t = time.time_ns()
     doc, tag, text = Doc().tagtext()
+
+    with tag("head"):
+        with tag("title"):
+            text(f"{query} - dundercode")
 
     if lineno is not None:
         try:
