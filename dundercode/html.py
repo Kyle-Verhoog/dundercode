@@ -12,14 +12,14 @@ class Html:
 
     def _render(self, el) -> str:
         if isinstance(el, list):
-            return "\n".join(self._render(e) for e in el)
+            return "".join(self._render(e) for e in el)
         elif isinstance(el, dict):
             attrs = " ".join(f"{k}=\"{v}\"" for k, v in el["attrs"].items())
             return f"""
 <{el["type"]} {attrs}>
     {self._render(el["children"])}
 </{el["type"]}>
-"""
+""".lstrip()
         elif isinstance(el, str):
             return el
 
@@ -27,7 +27,7 @@ class Html:
         return f"""
 <!DOCTYPE html>
 {self._render(self._page)}
-"""
+""".strip()
 
     def text(self, txt) -> None:
         if isinstance(self._cur_element, list):
@@ -49,3 +49,7 @@ class Html:
         self._cur_element = prev
 
     el = tag
+
+    def meta(self, **kwargs):
+        with self.tag("meta", **kwargs) as el:
+            return el
