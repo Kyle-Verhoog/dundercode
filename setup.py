@@ -7,8 +7,8 @@ setup(
     packages=find_packages(),
     python_requires=">=3.9",
     install_requires=[
-        "asgiref",
+        "asgiref==3.6.0",
         "cryptography==3.*",
-        "uvicorn[standard]",
+        "uvicorn[standard]==0.20.0",
     ],
 )
