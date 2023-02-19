@@ -1,12 +1,21 @@
+import logging
 from typing import Callable, Optional
 
 from asgiref.typing import ASGIReceiveCallable, ASGISendCallable, HTTPScope
+from datadog import DDClient, DDConfig, DDASGIMiddleware
 
 from . import pages
 from . import views
 from .html import Html
 
 Handler = Callable[[HTTPScope], Html]
+ddcfg = DDConfig(
+    service="dundercode",
+    tracing_enabled=True,
+    version_use_git=True,
+)
+ddclient = DDClient(config=ddcfg)
+logging.getLogger("").addHandler(ddclient.LogHandler())
 
 
 def _router(scope) -> Optional[Handler]:
@@ -44,3 +53,6 @@ async def application(scope: HTTPScope, receive: ASGIReceiveCallable, send: ASGI
         })
     else:
         raise NotImplementedError
+
+
+app = DDASGIMiddleware(application)
