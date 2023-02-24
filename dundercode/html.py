@@ -14,7 +14,7 @@ class Html:
         if isinstance(el, list):
             return "".join(self._render(e) for e in el)
         elif isinstance(el, dict):
-            attrs = " ".join(f"{k}=\"{v}\"" for k, v in el["attrs"].items())
+            attrs = " ".join(f'{k}="{v}"' for k, v in el["attrs"].items())
             return f"""
 <{el["type"]} {attrs}>
     {self._render(el["children"])}

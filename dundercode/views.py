@@ -6,13 +6,17 @@ from .html import Html
 
 def _fmt_chars(chars: List[str]):
     chars = [char.capitalize() for char in chars]
-    return "%s and %s" % (",".join(chars[:-1]), chars[-1]) if len(chars) > 1 else chars[0]
+    return (
+        "%s and %s" % (",".join(chars[:-1]), chars[-1]) if len(chars) > 1 else chars[0]
+    )
 
 
 def _base_page() -> Html:
-    return Html(attrs={
-        "direction": "ltr",
-    })
+    return Html(
+        attrs={
+            "direction": "ltr",
+        }
+    )
 
 
 def _add_base_meta(h: Html) -> None:
@@ -31,7 +35,8 @@ def index(title: str) -> Html:
     with h.tag("head"):
         _add_base_meta(h)
         with h.el("script"):
-            h.text("""
+            h.text(
+                """
 function doSearch(query) {
     location.href = location.href + "search/" + query;
 }
@@ -44,7 +49,8 @@ function searchButton() {
     var el = document.getElementById("search-text");
     doSearch(el.value);
 }
-""")
+"""
+            )
         with h.el("title"):
             h.text(title)
     with h.tag("body"):
@@ -52,7 +58,12 @@ function searchButton() {
             h.text(title)
         with h.tag("h3"):
             h.text("search for quote")
-        with h.tag("input", id="search-text", placeholder="quote", onkeydown="searchInput(this)"):
+        with h.tag(
+            "input",
+            id="search-text",
+            placeholder="quote",
+            onkeydown="searchInput(this)",
+        ):
             pass
         with h.tag("button", onclick="searchButton()"):
             h.text("search")
@@ -66,7 +77,7 @@ def search(
     start_ns: int,
     title: str,
     query: str,
-    results: List[Tuple[int, int, int, int, List[str], str]]
+    results: List[Tuple[int, int, int, int, List[str], str]],
 ) -> Html:
     h = _base_page()
 
@@ -102,7 +113,7 @@ def quote(
     scene: int,
     lineno: int,
     chars: List[str],
-    quote: str
+    quote: str,
 ) -> Html:
     h = _base_page()
     title = f"S{season}E{episode} {_fmt_chars(chars)} quote - {title}"
@@ -144,7 +155,7 @@ def scene(
     chars: List[str],
     prev_scene_href: Optional[str],
     next_scene_href: Optional[str],
-    lines: List[Tuple[int, List[str], str]]
+    lines: List[Tuple[int, List[str], str]],
 ) -> Html:
     h = _base_page()
     title = f"S{season}E{episode} scene {scene} - {title}"

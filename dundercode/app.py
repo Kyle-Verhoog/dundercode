@@ -30,27 +30,40 @@ def _router(scope) -> Optional[Handler]:
     return None
 
 
-async def application(scope: HTTPScope, receive: ASGIReceiveCallable, send: ASGISendCallable):
+async def application(
+    scope: HTTPScope, receive: ASGIReceiveCallable, send: ASGISendCallable
+):
     await receive()
     if scope["type"] == "http":
         route = _router(scope)
         if route is None:
-            await send({
-                "type": "http.response.start",
-                "headers": [(b"Content-Type", b"text/http")],
-                "status": 404,
-            })
-            await send({"type": "http.response.body", "body": views.not_found().render().encode("utf-8")})
+            await send(
+                {
+                    "type": "http.response.start",
+                    "headers": [(b"Content-Type", b"text/http")],
+                    "status": 404,
+                }
+            )
+            await send(
+                {
+                    "type": "http.response.body",
+                    "body": views.not_found().render().encode("utf-8"),
+                }
+            )
             return
-        await send({
-            "type": "http.response.start",
-            "headers": [(b"Content-Type", b"text/html")],
-            "status": 200,
-        })
-        await send({
-            "type": "http.response.body",
-            "body": route(scope).render().encode("utf-8"),
-        })
+        await send(
+            {
+                "type": "http.response.start",
+                "headers": [(b"Content-Type", b"text/html")],
+                "status": 200,
+            }
+        )
+        await send(
+            {
+                "type": "http.response.body",
+                "body": route(scope).render().encode("utf-8"),
+            }
+        )
     else:
         raise NotImplementedError
 

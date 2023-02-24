@@ -13,7 +13,7 @@ def index(_: HTTPScope) -> Html:
 
 def search(scope: HTTPScope):
     start_ns = time.time_ns()
-    query = scope["path"][len("/search/"):]
+    query = scope["path"][len("/search/") :]
     results = list(data.find_lines(query))
     return views.search(
         start_ns=start_ns,
@@ -25,7 +25,7 @@ def search(scope: HTTPScope):
 
 def quote(scope: HTTPScope) -> Html:
     start_ns = time.time_ns()
-    lineno = int(scope["path"][len("/quote/"):])
+    lineno = int(scope["path"][len("/quote/") :])
     line = data.get_line(lineno)
     return views.quote(
         start_ns=start_ns,
@@ -41,7 +41,7 @@ def quote(scope: HTTPScope) -> Html:
 
 def scene(scope: HTTPScope) -> Html:
     start_ns = time.time_ns()
-    season, episode, scene = map(int, scope["path"][len("/scene/"):].split(","))
+    season, episode, scene = map(int, scope["path"][len("/scene/") :].split(","))
     lines = list(data.get_lines_for_scene(season=season, episode=episode, scene=scene))
     if lines:
         chars = set()

@@ -26,7 +26,7 @@ def _read_data() -> List[Line]:
             chars = [char]
         chars = [c.lower().strip() for c in chars]
         line = split[3:-2]
-        line = ",".join(line).strip("\"")
+        line = ",".join(line).strip('"')
         data.append(Line(lineno, int(season), int(ep), int(scene), chars, line))
     return data
 
@@ -56,10 +56,14 @@ def _characters() -> Set[str]:
 
 
 def get_lines_for_scene(season: int, episode: int, scene: int) -> Iterable[Line]:
-    return _lines_iter(lambda l: l.scene == scene and l.episode == episode and l.season == season)
+    return _lines_iter(
+        lambda l: l.scene == scene and l.episode == episode and l.season == season
+    )
 
 
-def find_lines(query_str: str, characters: Optional[Iterable[str]] = None) -> Iterable[Line]:
+def find_lines(
+    query_str: str, characters: Optional[Iterable[str]] = None
+) -> Iterable[Line]:
     query_chars: Set[str] = set(characters) if characters is not None else _characters()
     query_expr = re.compile(query_str, re.IGNORECASE)
 
