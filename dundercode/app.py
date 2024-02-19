@@ -18,9 +18,10 @@ from .dd import ddclient
 from .html import Html
 
 Handler = Callable[[HTTPScope], Html]
-root_logger = logging.getLogger("")
-root_logger.addHandler(ddclient.LogHandler())
-root_logger.setLevel(logging.INFO)
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+logger.addHandler(ddclient.LogHandler())
+logger.addHandler(logging.StreamHandler())
 
 
 def _load_static_assets():

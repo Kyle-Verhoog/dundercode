@@ -1,5 +1,4 @@
 import logging
-import time
 
 from asgiref.typing import HTTPScope
 
@@ -8,7 +7,7 @@ from . import views
 from .html import Html
 
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 
 def index(_: HTTPScope) -> Html:
