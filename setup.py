@@ -10,6 +10,6 @@ setup(
         "asgiref==3.6.0",
         "cryptography==3.*",
         "uvicorn[standard]==0.20.0",
-        "ddkypy@git+https://github.com/Kyle-Verhoog/datadog-python.git@ea41659a572b1476a95e4d91b9f313796a8efb87#egg=ddkypy",
+        "ddkypy@git+https://github.com/Kyle-Verhoog/datadog-python.git@c4ed172a03c08d7769e079ae0792c2661398d46d#egg=ddkypy",
     ],
 )
