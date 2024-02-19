@@ -1,7 +1,9 @@
+import functools
 import re
 from typing import Callable, Generator, Iterable, List, NamedTuple, Optional, Set
 
 from .crypt import decrypt
+from .dd import ddclient
 
 
 class Line(NamedTuple):
@@ -61,6 +63,7 @@ def get_lines_for_scene(season: int, episode: int, scene: int) -> Iterable[Line]
     )
 
 
+@ddclient.traced()
 def find_lines(
     query_str: str, characters: Optional[Iterable[str]] = None
 ) -> Iterable[Line]:

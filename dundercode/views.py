@@ -12,15 +12,27 @@ def _fmt_chars(chars: List[str]):
 
 
 def _base_page() -> Html:
-    return Html(
+    page = Html(
         attrs={
             "direction": "ltr",
         }
     )
+    with page.tag("style"):
+        page.text(
+            """
+body {
+    margin: 0.5em;
+    padding: 0;
+}
+        """
+        )
+    return page
 
 
 def _add_base_meta(h: Html) -> None:
     h.meta(**{"content": "text/html;charset=utf-8", "http-equiv": "Content-Type"})
+    h.meta(**{"name": "viewport", "content": "width=device-width, initial-scale=1.0"})
+    h.meta(**{"name": "description", "content": "dundercode"})
 
 
 def not_found() -> Html:
@@ -30,7 +42,6 @@ def not_found() -> Html:
 
 
 def index(title: str) -> Html:
-    start_t = time.time_ns()
     h = _base_page()
     with h.tag("head"):
         _add_base_meta(h)
@@ -57,7 +68,7 @@ function searchButton() {
         with h.tag("h1"):
             h.text(title)
         with h.tag("h3"):
-            h.text("search for quote")
+            h.text("search for a quote")
         with h.tag(
             "input",
             id="search-text",
@@ -67,14 +78,10 @@ function searchButton() {
             pass
         with h.tag("button", onclick="searchButton()"):
             h.text("search")
-    with h.tag("footer"):
-        with h.tag("small"):
-            h.text(f"page rendered in {(time.time_ns() - start_t)/1e3}us")
     return h
 
 
 def search(
-    start_ns: int,
     title: str,
     query: str,
     results: List[Tuple[int, int, int, int, List[str], str]],
@@ -99,14 +106,10 @@ def search(
         if not results:
             with h.tag("p"):
                 h.text("no lines found 😭")
-    with h.tag("footer"):
-        with h.tag("small"):
-            h.text(f"query completed in {(time.time_ns()-start_ns)/1e6}ms")
     return h
 
 
 def quote(
-    start_ns: int,
     title: str,
     season: int,
     episode: int,
@@ -142,12 +145,12 @@ def quote(
             h.text("scene")
     with h.tag("footer"):
         with h.tag("small"):
-            h.text(f"query completed in {(time.time_ns()-start_ns)/1e6}ms")
+            with h.tag("a", href="/"):
+                h.text(f"search")
     return h
 
 
 def scene(
-    start_ns: int,
     title: str,
     season: int,
     episode: int,
@@ -191,6 +194,4 @@ def scene(
         with h.tag("small"):
             with h.tag("a", href="/"):
                 h.text(f"search")
-            h.text(" | ")
-            h.text(f"query completed in {(time.time_ns()-start_ns)/1e6}ms")
     return h

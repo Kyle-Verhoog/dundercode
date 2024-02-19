@@ -1,3 +1,4 @@
+import logging
 import time
 
 from asgiref.typing import HTTPScope
@@ -7,16 +8,18 @@ from . import views
 from .html import Html
 
 
+logger = logging.getLogger(__file__)
+
+
 def index(_: HTTPScope) -> Html:
     return views.index(title="dundercode")
 
 
 def search(scope: HTTPScope):
-    start_ns = time.time_ns()
     query = scope["path"][len("/search/") :]
+    logger.info("using query %r", query)
     results = list(data.find_lines(query))
     return views.search(
-        start_ns=start_ns,
         title="dundercode",
         query=query,
         results=results,
@@ -24,11 +27,9 @@ def search(scope: HTTPScope):
 
 
 def quote(scope: HTTPScope) -> Html:
-    start_ns = time.time_ns()
     lineno = int(scope["path"][len("/quote/") :])
     line = data.get_line(lineno)
     return views.quote(
-        start_ns=start_ns,
         title="dundercode",
         lineno=line.lineno,
         episode=line.episode,
@@ -40,7 +41,6 @@ def quote(scope: HTTPScope) -> Html:
 
 
 def scene(scope: HTTPScope) -> Html:
-    start_ns = time.time_ns()
     season, episode, scene = map(int, scope["path"][len("/scene/") :].split(","))
     lines = list(data.get_lines_for_scene(season=season, episode=episode, scene=scene))
     if lines:
@@ -50,7 +50,6 @@ def scene(scope: HTTPScope) -> Html:
             chars = chars.union(set(line.speakers))
             _lines.append((line.lineno, line.speakers, line.line))
         return views.scene(
-            start_ns=start_ns,
             title="dundercode",
             season=season,
             episode=episode,

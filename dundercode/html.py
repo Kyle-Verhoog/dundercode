@@ -1,5 +1,7 @@
 from contextlib import contextmanager
 
+from .dd import ddclient
+
 
 class Html:
     def __init__(self, attrs):
@@ -23,6 +25,7 @@ class Html:
         elif isinstance(el, str):
             return el
 
+    @ddclient.traced("render")
     def render(self) -> str:
         return f"""
 <!DOCTYPE html>
