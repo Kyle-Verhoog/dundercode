@@ -84,8 +84,10 @@ def search(
     title: str,
     query: str,
     results: List[Tuple[int, int, int, int, List[str], str]],
+    base_url: str = "",
 ) -> Html:
     h = _base_page()
+    page_url = f"{base_url}/search/{query}"
 
     with h.tag("head"):
         with h.tag("title"):
@@ -94,7 +96,9 @@ def search(
         h.meta(name="description", content="search results")
         h.meta(property="og:title", content=title)
         h.meta(property="og:type", content="website")
+        h.meta(property="og:url", content=page_url)
         h.meta(property="og:description", content="search results")
+        h.meta(property="og:image", content=f"{base_url}/og-image.png")
     with h.tag("body"):
         for lineno, season, ep, scene, chars, line in results:
             with h.tag("p"):
@@ -116,9 +120,11 @@ def quote(
     lineno: int,
     chars: List[str],
     quote: str,
+    base_url: str = "",
 ) -> Html:
     h = _base_page()
     title = f"S{season}E{episode} {_fmt_chars(chars)} quote - {title}"
+    page_url = f"{base_url}/quote/{lineno}"
     with h.tag("head"):
         with h.tag("title"):
             h.text(title)
@@ -126,9 +132,9 @@ def quote(
         h.meta(name="description", content=quote)
         h.meta(property="og:title", content=title)
         h.meta(property="og:type", content="website")
-        h.meta(property="og::author", content="")
-        h.meta(property="og:article:section", content=f"S{season}E{episode}")
+        h.meta(property="og:url", content=page_url)
         h.meta(property="og:description", content=f"{quote}")
+        h.meta(property="og:image", content=f"{base_url}/og-image.png")
     with h.tag("body"):
         with h.tag("h2"):
             h.text(f"{_fmt_chars(chars)} (S{season}E{episode})")
@@ -158,10 +164,12 @@ def scene(
     prev_scene_href: Optional[str],
     next_scene_href: Optional[str],
     lines: List[Tuple[int, List[str], str]],
+    base_url: str = "",
 ) -> Html:
     h = _base_page()
     title = f"S{season}E{episode} scene {scene} - {title}"
     description = f"{_fmt_chars(chars)} scene"
+    page_url = f"{base_url}/scene/{season},{episode},{scene}"
     with h.tag("head"):
         with h.tag("title"):
             h.text(title)
@@ -169,7 +177,9 @@ def scene(
         h.meta(name="description", content=description)
         h.meta(property="og:title", content=title)
         h.meta(property="og:type", content="website")
+        h.meta(property="og:url", content=page_url)
         h.meta(property="og:description", content=description)
+        h.meta(property="og:image", content=f"{base_url}/og-image.png")
     with h.tag("body"):
         with h.tag("h2"):
             h.text(f"S{season}E{episode} scene {scene}")
