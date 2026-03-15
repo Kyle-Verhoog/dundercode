@@ -130,11 +130,12 @@ def quote(
         with h.tag("title"):
             h.text(page_title)
         _add_base_meta(h)
+        og_description = f"S{season}E{episode} · {_fmt_chars(chars)} · {title}"
         h.meta(name="description", content=quote)
         h.meta(property="og:title", content=og_title)
         h.meta(property="og:type", content="website")
         h.meta(property="og:url", content=page_url)
-        h.meta(property="og:description", content=quote)
+        h.meta(property="og:description", content=og_description)
         h.meta(property="og:image", content=f"{base_url}/og-image.png")
     with h.tag("body"):
         with h.tag("h2"):
