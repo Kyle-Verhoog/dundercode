@@ -123,17 +123,18 @@ def quote(
     base_url: str = "",
 ) -> Html:
     h = _base_page()
-    title = f"S{season}E{episode} {_fmt_chars(chars)} quote - {title}"
+    page_title = f"S{season}E{episode} {_fmt_chars(chars)} quote - {title}"
+    og_title = f'"{quote}" — {_fmt_chars(chars)}, S{season}E{episode}'
     page_url = f"{base_url}/quote/{lineno}"
     with h.tag("head"):
         with h.tag("title"):
-            h.text(title)
+            h.text(page_title)
         _add_base_meta(h)
         h.meta(name="description", content=quote)
-        h.meta(property="og:title", content=title)
+        h.meta(property="og:title", content=og_title)
         h.meta(property="og:type", content="website")
         h.meta(property="og:url", content=page_url)
-        h.meta(property="og:description", content=f"{quote}")
+        h.meta(property="og:description", content=quote)
         h.meta(property="og:image", content=f"{base_url}/og-image.png")
     with h.tag("body"):
         with h.tag("h2"):
