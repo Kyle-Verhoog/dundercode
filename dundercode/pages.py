@@ -10,6 +10,17 @@ from .html import Html
 logger = logging.getLogger(__name__)
 
 
+def _base_url(scope: HTTPScope) -> str:
+    scheme = scope.get("scheme", "https")
+    headers = dict(scope.get("headers", []))
+    host = headers.get(b"host", b"").decode("utf-8")
+    if not host:
+        server = scope.get("server")
+        if server:
+            host = f"{server[0]}:{server[1]}"
+    return f"{scheme}://{host}"
+
+
 def index(_: HTTPScope) -> Html:
     return views.index(title="dundercode")
 
@@ -22,6 +33,7 @@ def search(scope: HTTPScope):
         title="dundercode",
         query=query,
         results=results,
+        base_url=_base_url(scope),
     )
 
 
@@ -36,6 +48,7 @@ def quote(scope: HTTPScope) -> Html:
         scene=line.scene,
         chars=line.speakers,
         quote=line.line,
+        base_url=_base_url(scope),
     )
 
 
@@ -57,6 +70,7 @@ def scene(scope: HTTPScope) -> Html:
             lines=_lines,
             prev_scene_href=f"/scene/{season},{episode},{scene-1}",
             next_scene_href=f"/scene/{season},{episode},{scene+1}",
+            base_url=_base_url(scope),
         )
     else:
         raise NotImplementedError

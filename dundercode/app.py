@@ -81,6 +81,11 @@ async def application(
             await send(start)
             await send(body)
             return
+        if scope["path"] == "/og-image.png":
+            start, body = _serve_static("image/png", static_assets["og-image.png"])
+            await send(start)
+            await send(body)
+            return
 
         route = _router(scope)
         if route is None:
