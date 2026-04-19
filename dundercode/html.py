@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from html import escape as _html_escape
 
 from .dd import ddclient
 
@@ -12,18 +13,27 @@ class Html:
         }
         self._cur_element = self._page
 
-    def _render(self, el) -> str:
+    # Elements whose text content is *not* HTML-escaped by the browser
+    # (per the HTML spec); escaping would turn valid JS/CSS into garbage
+    # like `if (a &lt; b)` or `document.getElementById(&quot;x&quot;)`.
+    _RAW_TEXT_ELEMENTS = frozenset({"script", "style"})
+
+    def _render(self, el, raw_text: bool = False) -> str:
         if isinstance(el, list):
-            return "".join(self._render(e) for e in el)
+            return "".join(self._render(e, raw_text) for e in el)
         elif isinstance(el, dict):
-            attrs = " ".join(f'{k}="{v}"' for k, v in el["attrs"].items())
+            attrs = " ".join(
+                f'{k}="{_html_escape(str(v), quote=True)}"'
+                for k, v in el["attrs"].items()
+            )
+            child_raw = raw_text or el["type"] in self._RAW_TEXT_ELEMENTS
             return f"""
 <{el["type"]} {attrs}>
-    {self._render(el["children"])}
+    {self._render(el["children"], child_raw)}
 </{el["type"]}>
 """.lstrip()
         elif isinstance(el, str):
-            return el
+            return el if raw_text else _html_escape(el)
 
     @ddclient.traced("render")
     def render(self) -> str:

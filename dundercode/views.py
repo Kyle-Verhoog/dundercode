@@ -1,5 +1,7 @@
 from typing import List, Optional, Tuple
 
+import ddtrace
+
 from .html import Html
 
 
@@ -124,20 +126,36 @@ def quote(
     base_url: str = "",
 ) -> Html:
     h = _base_page()
-    page_title = f"S{season}E{episode} {_fmt_chars(chars)} quote - {title}"
-    og_title = f'"{quote}" — {_fmt_chars(chars)}, S{season}E{episode}'
+    speakers = _fmt_chars(chars)
+    page_title = f"S{season}E{episode} {speakers} quote - {title}"
+    og_title = f"{speakers} — S{season}E{episode}"
+    og_description = quote
     page_url = f"{base_url}/quote/{lineno}"
+
+    span = ddtrace.tracer.current_span()
+    if span is not None:
+        span.set_tag("leash.unfurl.view", "quote")
+        span.set_tag("leash.unfurl.og_title", og_title)
+        span.set_tag("leash.unfurl.og_description_len", len(og_description))
+        span.set_tag("leash.unfurl.has_og_image", False)
+
     with h.tag("head"):
         with h.tag("title"):
             h.text(page_title)
         _add_base_meta(h)
-        og_description = f"S{season}E{episode} · {_fmt_chars(chars)} · {title}"
         h.meta(name="description", content=quote)
+        # Open Graph: the quote itself is the description; no image so the
+        # unfurl renders as a compact text card instead of a grey box.
         h.meta(property="og:title", content=og_title)
-        h.meta(property="og:type", content="website")
+        h.meta(property="og:type", content="article")
         h.meta(property="og:url", content=page_url)
         h.meta(property="og:description", content=og_description)
-        h.meta(property="og:image", content=f"{base_url}/og-image.png")
+        h.meta(property="og:site_name", content=title)
+        # Twitter card: "summary" gives Slack/Twitter a text-first preview
+        # with no large image region.
+        h.meta(**{"name": "twitter:card", "content": "summary"})
+        h.meta(**{"name": "twitter:title", "content": og_title})
+        h.meta(**{"name": "twitter:description", "content": og_description})
     with h.tag("body"):
         with h.tag("h2"):
             h.text(f"{_fmt_chars(chars)} (S{season}E{episode})")
