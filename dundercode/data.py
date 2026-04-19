@@ -2,6 +2,8 @@ import functools
 import re
 from typing import Callable, Generator, Iterable, List, NamedTuple, Optional, Set
 
+import ddtrace
+
 from .crypt import decrypt
 from .dd import ddclient
 
@@ -66,14 +68,31 @@ def get_lines_for_scene(season: int, episode: int, scene: int) -> Iterable[Line]
 @ddclient.traced()
 def find_lines(
     query_str: str, characters: Optional[Iterable[str]] = None
-) -> Iterable[Line]:
+) -> List[Line]:
+    """Search lines for *query_str*.
+
+    Tokenises the query on whitespace and returns lines where every token
+    appears (case-insensitively) in the line body or in a speaker name.
+    All tokens must be present, order-independent; no regex surprises.
+    """
     query_chars: Set[str] = set(characters) if characters is not None else _characters()
-    query_expr = re.compile(query_str, re.IGNORECASE)
+    tokens: List[str] = [t.lower().strip() for t in query_str.split() if t.strip()]
+
+    span = ddtrace.tracer.current_span()
+    if span is not None:
+        span.set_tag("leash.search.query", query_str)
+        span.set_tag("leash.search.tokens", len(tokens))
+        span.set_tag("leash.search.strategy", "all_tokens")
 
     def _matches(line: Line) -> bool:
-        speakers = line.speakers
-        if not query_chars.intersection(speakers):
+        if not query_chars.intersection(line.speakers):
             return False
-        return query_expr.search(line.line, re.IGNORECASE) is not None
+        if not tokens:
+            return True
+        haystacks = [line.line.lower(), *line.speakers]
+        return all(any(tok in h for h in haystacks) for tok in tokens)
 
-    return _lines_iter(_matches)
+    matches = [line for line in _lines if _matches(line)]
+    if span is not None:
+        span.set_tag("leash.search.match_count", len(matches))
+    return matches
