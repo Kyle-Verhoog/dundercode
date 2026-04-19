@@ -73,6 +73,7 @@ function searchButton() {
             id="search-text",
             placeholder="quote",
             onkeydown="searchInput(this)",
+            autofocus="autofocus",
         ):
             pass
         with h.tag("button", onclick="searchButton()"):
