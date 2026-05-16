@@ -46,3 +46,41 @@ task. Do not duplicate what the code or tests already express.
   `leash.unfurl.og_description_len` (metrics).
 - Slack caches unfurls per URL; when testing, use an unseen path
   (e.g. a different quote id) or have Slack re-fetch.
+
+## AI scene context (`dundercode.ai.scene_context`)
+
+- `/quote/{id}` renders a 1-2 sentence summary above the quote so
+  newcomers to The Office have enough context to get the joke. The
+  summary is generated from the surrounding scene's lines.
+- Requires `OPENAI_API_KEY`. Without it (or on API failure) the call
+  returns `None` and the page renders without the blurb — never raise.
+- Persistent on-disk cache keyed by `(season, episode, scene)` lives at
+  `DUNDERCODE_SCENE_CACHE` (default `cache/scene_context.json`). The
+  transcript is static, so each scene is summarised at most once.
+- Model is `DUNDERCODE_OPENAI_MODEL` (default `gpt-4o-mini`).
+- The blurb is **only** rendered in the page body. `og:description`
+  stays as the quote so Slack unfurls don't depend on OpenAI.
+- Wrapped with `@ddclient.workflow(name="scene_context")` (LLM Obs).
+  The OpenAI call is auto-instrumented by ddtrace's openai integration
+  as a child `llm` span when LLM Obs is enabled.
+- Manual span tags emitted on the parent APM span:
+  `leash.ai.scene_context.cache_hit` (meta),
+  `leash.ai.scene_context.scene` (meta),
+  `leash.ai.scene_context.model` (meta),
+  `leash.ai.scene_context.prompt_tokens` /
+  `leash.ai.scene_context.completion_tokens` (metrics),
+  `leash.ai.scene_context.error` (meta, on failure).
+
+## LLM Observability
+
+- Enabled via `DDConfig(llmobs_enabled=True, llmobs_ml_app="dundercode")`
+  in `dd.py`. Requires ddkypy ≥ the SHA that ships ddtrace 4.8 + the
+  `LLMObs`-on-`DDClient` API.
+- Use the decorators directly off the client:
+  `@ddclient.workflow`, `@ddclient.llm`, `@ddclient.task`,
+  `@ddclient.tool`, `@ddclient.retrieval`, `@ddclient.embedding`,
+  `@ddclient.llm_agent` (named to avoid clashing with the Datadog
+  Agent runner). Annotate with `ddclient.annotate(...)`.
+- Traces flow through the local agent at `localhost:8126` like other
+  APM traces. Set `DD_LLMOBS_AGENTLESS_ENABLED=1` to send directly to
+  Datadog instead.

@@ -123,6 +123,7 @@ def quote(
     lineno: int,
     chars: List[str],
     quote: str,
+    scene_context: Optional[str] = None,
     base_url: str = "",
 ) -> Html:
     h = _base_page()
@@ -138,6 +139,7 @@ def quote(
         span.set_tag("leash.unfurl.og_title", og_title)
         span.set_tag("leash.unfurl.og_description_len", len(og_description))
         span.set_tag("leash.unfurl.has_og_image", False)
+        span.set_tag("leash.quote.has_scene_context", bool(scene_context))
 
     with h.tag("head"):
         with h.tag("title"):
@@ -159,6 +161,10 @@ def quote(
     with h.tag("body"):
         with h.tag("h2"):
             h.text(f"{_fmt_chars(chars)} (S{season}E{episode})")
+        if scene_context:
+            with h.tag("p", style="color:#555;font-style:italic;margin:0 0 0.5em 0;"):
+                with h.tag("small"):
+                    h.text(f"Scene context: {scene_context}")
         with h.tag("blockquote"):
             h.text(quote)
         with h.tag("a", href=f"/quote/{lineno-1}"):

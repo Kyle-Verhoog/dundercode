@@ -2,6 +2,7 @@ import logging
 
 from asgiref.typing import HTTPScope
 
+from . import ai
 from . import data
 from . import views
 from .html import Html
@@ -40,6 +41,9 @@ def search(scope: HTTPScope):
 def quote(scope: HTTPScope) -> Html:
     lineno = int(scope["path"][len("/quote/") :])
     line = data.get_line(lineno)
+    context = ai.scene_context(
+        season=line.season, episode=line.episode, scene=line.scene
+    )
     return views.quote(
         title="dundercode",
         lineno=line.lineno,
@@ -48,6 +52,7 @@ def quote(scope: HTTPScope) -> Html:
         scene=line.scene,
         chars=line.speakers,
         quote=line.line,
+        scene_context=context,
         base_url=_base_url(scope),
     )
 
