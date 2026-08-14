@@ -11,6 +11,7 @@ setup(
         "cryptography==3.*",
         "uvicorn[standard]==0.27.1",
         "openai>=1.0",
+        "pillow>=10.1",
         "ddkypy@git+https://github.com/Kyle-Verhoog/datadog-python.git@8dbfae9#egg=ddkypy",
     ],
 )

@@ -1,9 +1,11 @@
 import logging
+from typing import Optional
 
 from asgiref.typing import HTTPScope
 
 from . import ai
 from . import data
+from . import ogimage
 from . import views
 from .html import Html
 
@@ -55,6 +57,20 @@ def quote(scope: HTTPScope) -> Html:
         scene_context=context,
         base_url=_base_url(scope),
     )
+
+
+def quote_og_image(scope: HTTPScope) -> Optional[bytes]:
+    """PNG card for `/og/quote/{lineno}.png`, or None if there's no such line."""
+    ident = scope["path"][len("/og/quote/") : -len(".png")]
+    try:
+        lineno = int(ident)
+        if lineno < 0:  # negative indices would silently wrap to the tail
+            return None
+        line = data.get_line(lineno)
+    except (ValueError, IndexError):
+        return None
+    attribution = f"{views.fmt_chars(line.speakers)} — S{line.season}E{line.episode}"
+    return ogimage.cached_quote_card(line.line, attribution)
 
 
 def scene(scope: HTTPScope) -> Html:

@@ -46,10 +46,15 @@ def _router(scope: HTTPScope) -> Optional[Handler]:
     return None
 
 
-def _serve_static(content_type: str, body: bytes) -> tuple[dict, dict]:
+def _serve_static(
+    content_type: str, body: bytes, cache_control: Optional[str] = None
+) -> tuple[dict, dict]:
+    headers = [(b"Content-Type", content_type.encode("utf-8"))]
+    if cache_control is not None:
+        headers.append((b"Cache-Control", cache_control.encode("utf-8")))
     return {
         "type": "http.response.start",
-        "headers": [(b"Content-Type", content_type.encode("utf-8"))],
+        "headers": headers,
         "status": 200,
     }, {"type": "http.response.body", "body": body}
 
@@ -85,6 +90,21 @@ async def application(
             start, body = _serve_static("image/png", static_assets["og-image.png"])
             await send(start)
             await send(body)
+            return
+        if scope["path"].startswith("/og/quote/") and scope["path"].endswith(".png"):
+            card = pages.quote_og_image(scope)
+            if card is not None:
+                # Rendered fresh per request and explicitly not cacheable
+                # while the card layout is still being iterated on — a card
+                # cached by a client or crawler can't be re-checked.
+                start, body = _serve_static(
+                    "image/png", card, cache_control="no-store"
+                )
+                await send(start)
+                await send(body)
+                return
+            await send(_http_start(404))
+            await send(_http_body(views.not_found().render()))
             return
 
         route = _router(scope)

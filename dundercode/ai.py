@@ -22,7 +22,7 @@ _SYSTEM_PROMPT = (
     "need to appreciate the humour. Do not quote the lines back. Do not "
     "include disclaimers or preamble."
 )
-_MODEL = os.environ.get("DUNDERCODE_OPENAI_MODEL", "gpt-4o-mini")
+_MODEL = os.environ.get("DUNDERCODE_MODEL", "gpt-4.1-nano")
 _CACHE_PATH = pathlib.Path(
     os.environ.get(
         "DUNDERCODE_SCENE_CACHE",
@@ -75,10 +75,7 @@ def _format_scene(season: int, episode: int, scene: int) -> Optional[str]:
     lines = list(data.get_lines_for_scene(season=season, episode=episode, scene=scene))
     if not lines:
         return None
-    body = "\n".join(
-        f"{', '.join(s.capitalize() for s in line.speakers)}: {line.line}"
-        for line in lines
-    )
+    body = "\n".join(f"{', '.join(line.speakers)}: {line.line}" for line in lines)
     return f"S{season}E{episode} scene {scene}:\n{body}"
 
 
