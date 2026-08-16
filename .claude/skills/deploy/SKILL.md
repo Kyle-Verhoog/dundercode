@@ -123,7 +123,7 @@ Leave it **uncommitted** for now and **ask** before:
 scp ~/dev/verhoog.ca/docker-compose.yml verhoog.ca:~/verhoog.ca/docker-compose.yml
 ```
 
-The commit comes after validation (step 6), not here. That repo's history is the
+The commit comes after validation (step 7), not here. That repo's history is the
 deploy log, so a deploy that fails and gets rolled back must not leave behind a
 commit claiming the version shipped.
 
@@ -166,11 +166,39 @@ all. That shows up as a crash loop in step 4, not as bad content here.
 
 If checks fail, roll back per step 2 rather than debugging in place.
 
-### 6. Record the deploy
+### 6. Confirm it is still monitored
+
+A deploy can serve perfect responses and silently stop being observable — a
+tracer that fails to start, or a `DD_ENV` that no longer matches the sampler key.
+
+```bash
+./scripts/validate_monitoring.sh
+```
+
+Takes ~40-100s. The agent aggregates receiver stats into **one-minute windows and
+an idle service is simply absent from them**, so the script generates traffic
+first and polls for a window containing it. Absence alone never proves a
+tracing failure — always drive traffic before concluding anything.
+
+It asserts, over `agent status -j` on the host:
+
+- traces arriving from the python tracer for `service:dundercode`
+- nothing dropped, refused, or malformed
+- the sampler knows `service:dundercode,env:prod` — this is what proves unified
+  service tagging took effect, since the sampler keys on service+env
+- the trace writer is flushing off-host without errors or retries
+- dogstatsd is parsing metrics cleanly
+
+Logs are reported as a **WARN, not a failure** — log collection depends on the
+`com.datadoghq.ad.logs` label in `docker-compose.yml` rather than on the image,
+so a missing one is a config gap to fix in that repo, not a reason to block or
+roll back a rollout.
+
+### 7. Record the deploy
 
 Only once validation is green, commit the pin in `~/dev/verhoog.ca` — subject
 line `Deploy dundercode <sha6>` — and push. That commit is the deploy log entry,
-so it should only ever describe a deploy that actually survived step 5.
+so it should only ever describe a deploy that actually survived steps 5-6.
 
 Report to the user: the commit deployed, the tag, and the check results.
 
@@ -183,12 +211,10 @@ origin/main` resolves against verhoog.ca and fails with `unknown revision`.
 
 ## Known sharp edges
 
-- **`restart: no`.** A server reboot leaves the site down until someone notices.
 - **Boot depends on `.git` + the `git` binary being in the image**, both true only
   by accident: `.dockerignore` lists just `key`, and `RUN apt remove git gcc` has
   no `-y`, so it fails and `;` swallows it. "Fixing" either makes `DDConfig`
   raise at import and the app fail to start outright. See AGENTS.md.
-- **`uvicorn.run(..., reload=True)`** — the dev reloader runs in prod.
 - **`/search` with no trailing slash** slices to an empty query and returns the
   whole transcript (~9.3 MB).
 - **`og:url` and `og:image` are emitted as `http://`**, though the site is

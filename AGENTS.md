@@ -4,6 +4,9 @@ Durable notes for coding agents working on this repo. Terse by design.
 Add an entry only when a lesson is generalisable beyond the current
 task. Do not duplicate what the code or tests already express.
 
+Write everything else that way too — replies, commit messages, PR
+bodies. State the finding, not the investigation that produced it.
+
 ## Tracing
 
 - Tracing is wired via **ddkypy** (`from .dd import ddclient`), a custom
@@ -157,7 +160,14 @@ task. Do not duplicate what the code or tests already express.
 - Prod is one container on `verhoog.ca` behind nginx, served at
   `dc.verhoog.ca`. See `.claude/skills/deploy/SKILL.md` for the
   procedure; `scripts/validate_prod.sh` is the smoke test and is
-  runnable standalone.
+  runnable standalone. `scripts/validate_monitoring.sh` checks the
+  service is still observable in Datadog (needs ssh).
+- Agent APM receiver stats are aggregated into **one-minute windows, and
+  an idle service is absent from them entirely**. Generate traffic
+  before concluding a tracer is broken.
+- Log collection is opt-in per container via the
+  `com.datadoghq.ad.logs` label in the compose file — container-collect-all
+  is off, so a service without the label ships no logs at all.
 - Images are tagged with the **6-char commit SHA prefix**, which is the
   same string `version_use_git=True` makes ddkypy report to Datadog
   (`hexsha[0:6]` of `HEAD`). Image tag, running container and the
