@@ -1,6 +1,7 @@
 FROM python:3.12-slim
 
-RUN apt update; apt install -y git gcc
+# fonts-dejavu-core stays in the image: the OG quote cards are typeset with it.
+RUN apt update; apt install -y git gcc fonts-dejavu-core
 WORKDIR /src
 ADD . /src
 RUN pip install .

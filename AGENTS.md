@@ -37,15 +37,45 @@ task. Do not duplicate what the code or tests already express.
 
 ## Open Graph unfurls (`/quote/{id}`)
 
-- The quote text is the **`og:description`** (and `twitter:description`).
-  `og:image` is intentionally omitted so Slack renders a compact
-  text-only unfurl instead of a grey placeholder box. `twitter:card`
-  is `summary` for the same reason.
+- **The quote leads `og:title`**, formatted `“quote” — Speaker, S1E2`.
+  This is deliberate: iMessage and Google Messages render only the
+  title and image. Apple's LinkPresentation has no description field at
+  all (`LPLinkMetadata` is title/url/icon/image/video), and Google
+  Messages dropped the description snippet in its Nov 2025 preview
+  redesign. Putting the quote only in `og:description` — as this page
+  used to — means neither platform ever shows it.
+- The quote is truncated to 90 chars for the title (word boundary +
+  ellipsis); 78% of transcript lines are ≤80 chars, so most survive
+  whole. When it *is* truncated, `og:description` carries the full line;
+  otherwise the description is the AI scene context, falling back to
+  `The Office — S{season}E{episode}`.
+- `og:image` is a **generated quote card** (see below), so `twitter:card`
+  is now `summary_large_image`. The earlier no-image/compact-Slack-card
+  choice traded away both mobile platforms; a typeset text card gets the
+  quote in front of every client without the grey placeholder box.
 - Span tags emitted: `leash.unfurl.view` (meta),
   `leash.unfurl.og_title` (meta), `leash.unfurl.has_og_image` (meta),
-  `leash.unfurl.og_description_len` (metrics).
+  `leash.unfurl.og_title_truncated` (meta),
+  `leash.unfurl.og_title_len` / `leash.unfurl.og_description_len`
+  (metrics).
+- Keep exactly one `<meta name="description">` per page: crawlers that
+  fall back to it take the first one they see.
 - Slack caches unfurls per URL; when testing, use an unseen path
   (e.g. a different quote id) or have Slack re-fetch.
+
+## Quote cards (`/og/quote/{id}.png`)
+
+- 1200x630 PNG with the quote typeset over a cream background plus an
+  attribution footer. Long quotes shrink to fit and are clipped with an
+  ellipsis once even the smallest size overflows.
+- Fonts come from a candidate list ending in a bundled fallback, so a
+  missing font can't take the route down. The Docker image ships
+  `fonts-dejavu-core` for this — keep it installed.
+- Cards are served `Cache-Control: no-store` **on purpose** while the
+  layout is being iterated on: a card cached by a browser, Slack or
+  Apple is keyed by URL and can't be re-checked. Restore the long
+  immutable cache once the design settles — the transcript is static,
+  so a card never changes.
 
 ## Transcript data (`transcript`, `transcript.csv`)
 
@@ -93,9 +123,10 @@ task. Do not duplicate what the code or tests already express.
 - Persistent on-disk cache keyed by `(season, episode, scene)` lives at
   `DUNDERCODE_SCENE_CACHE` (default `cache/scene_context.json`). The
   transcript is static, so each scene is summarised at most once.
-- Model is `DUNDERCODE_OPENAI_MODEL` (default `gpt-4o-mini`).
-- The blurb is **only** rendered in the page body. `og:description`
-  stays as the quote so Slack unfurls don't depend on OpenAI.
+- The blurb doubles as `og:description` when the quote fits in
+  `og:title` untruncated. Unfurls never *depend* on it: a missing blurb
+  falls back to `The Office — S{season}E{episode}`, and the quote itself
+  is carried by the title and the card image regardless.
 - Wrapped with `@ddclient.workflow(name="scene_context")` (LLM Obs).
   The OpenAI call is auto-instrumented by ddtrace's openai integration
   as a child `llm` span when LLM Obs is enabled.
