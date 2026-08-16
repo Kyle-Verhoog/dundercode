@@ -1,6 +1,6 @@
 ---
 name: deploy
-description: Deploy dundercode to production at dc.verhoog.ca and validate it, or roll back a bad deploy. Takes an optional commit-ish to deploy, defaulting to the repo's current HEAD. Use when asked to deploy, ship, release, or roll back dundercode, or to check whether dc.verhoog.ca is healthy.
+description: Deploy dundercode to production at dc.verhoog.ca and validate it, or roll back a bad deploy. Takes an optional commit-ish to deploy, defaulting to origin/main. Use when asked to deploy, ship, release, or roll back dundercode, or to check whether dc.verhoog.ca is healthy.
 ---
 
 # Deploying dundercode
@@ -54,32 +54,39 @@ file pinned to it cannot express what is running or roll back.
 
 ### 1. Preflight
 
-**The skill takes a commit as its argument** — `/deploy <commit-ish>`, where the
-argument is anything `git rev-parse` accepts (full SHA, short SHA, tag, branch).
-With no argument it defaults to the repo's current `HEAD`.
+**The skill takes a commit as its argument** — `/deploy <commit-ish>`, anything
+`git rev-parse` accepts. **With no argument it targets `origin/main`, not local
+`HEAD`.**
 
 ```bash
 git fetch origin
-TARGET=$(git rev-parse "${1:-HEAD}")
+TARGET=$(git rev-parse "${1:-origin/main}")
 SHA6=${TARGET:0:6}
 ```
 
-Then check it is **reachable from `origin/main`** — not merely that the local
-branch is called main, and not that it *is* main's tip. Deploying an older
-commit is a legitimate rollback:
+`origin/main` is the default because only commits on `main` ever get an image,
+and because this repo merges by squash: right after a merge, the local checkout
+is usually still on the PR branch whose tip was *never built*. Defaulting to
+`HEAD` there resolves to a commit with no image every time. Local `HEAD` is also
+whatever branch you happen to be on, which is rarely what "deploy" means.
+
+Pass an explicit commit to roll back or to deploy something other than main's
+tip.
+
+Then check the target is **reachable from `origin/main`** — not that it *is*
+main's tip, since deploying an older commit is a legitimate rollback:
 
 ```bash
 git merge-base --is-ancestor "$TARGET" origin/main || echo "NOT on main"
 ```
 
-If it is not on `main`, stop. The build workflow's `if:` gate skips every other
-branch, so no image was ever published for that commit — the deploy would fail
-at pull time, not at validation. Note that a squash-merged PR branch fails this
-check even though "its" changes are on main: the squash commit has a different
-SHA, and it is that SHA which has an image.
+If it is not on `main`, stop: the build workflow's `if:` gate skips every other
+branch, so no image was ever published and the deploy would fail at pull time
+rather than at validation. A squash-merged PR branch fails this check by design
+— its changes are on main, but under a different SHA, and it is that SHA which
+has an image. Retarget `origin/main` rather than trying to deploy the branch.
 
-Defaulting to `HEAD` means a stale checkout deploys something old without
-comment, so always report the resolved commit and its subject before going on.
+Always report the resolved commit and its subject before going on.
 
 Check the build for that commit with `gh run list --workflow=docker.yml`. If it
 is still running, **wait** — `gh run watch <id> --exit-status`, in the background
