@@ -2,6 +2,7 @@ from typing import List, Optional, Tuple
 
 import ddtrace
 
+from . import ogimage
 from .html import Html
 
 
@@ -10,6 +11,21 @@ def fmt_chars(chars: List[str]):
     return (
         "%s and %s" % (", ".join(chars[:-1]), chars[-1]) if len(chars) > 1 else chars[0]
     )
+
+
+# iMessage and Google Messages render og:title and og:image but never
+# og:description, so the quote has to lead the title. Long titles are cut
+# by every client (Google Messages at ~36 chars); this keeps the quote
+# readable while leaving room for the attribution suffix.
+_OG_TITLE_QUOTE_MAX = 90
+
+
+def _truncate(text: str, limit: int) -> str:
+    """Trim *text* to *limit* chars on a word boundary, with an ellipsis."""
+    if len(text) <= limit:
+        return text
+    head = text[:limit].rsplit(" ", 1)[0].rstrip(" ,.;:—-")
+    return f"{head or text[:limit]}…"
 
 
 def _base_page() -> Html:
@@ -30,10 +46,12 @@ body {
     return page
 
 
-def _add_base_meta(h: Html) -> None:
+def _add_base_meta(h: Html, description: str = "dundercode") -> None:
     h.meta(**{"content": "text/html;charset=utf-8", "http-equiv": "Content-Type"})
     h.meta(**{"name": "viewport", "content": "width=device-width, initial-scale=1.0"})
-    h.meta(**{"name": "description", "content": "dundercode"})
+    # Exactly one name="description" per page: crawlers that fall back to it
+    # take the first one they see.
+    h.meta(**{"name": "description", "content": description})
 
 
 def not_found() -> Html:
@@ -95,8 +113,7 @@ def search(
     with h.tag("head"):
         with h.tag("title"):
             h.text(f"{query} - {title}")
-        _add_base_meta(h)
-        h.meta(name="description", content="search results")
+        _add_base_meta(h, description="search results")
         h.meta(property="og:title", content=title)
         h.meta(property="og:type", content="website")
         h.meta(property="og:url", content=page_url)
@@ -129,38 +146,56 @@ def quote(
     h = _base_page()
     speakers = fmt_chars(chars)
     page_title = f"S{season}E{episode} {speakers} quote - {title}"
-    og_title = f"{speakers} — S{season}E{episode}"
-    og_description = quote
+    # The quote leads the title because that is the only text field every
+    # client renders (iMessage and Google Messages both drop descriptions).
+    short_quote = _truncate(quote, _OG_TITLE_QUOTE_MAX)
+    og_title = f"“{short_quote}” — {speakers}, S{season}E{episode}"
+    if short_quote != quote:
+        # Title had to be cut: give clients that do show a description the
+        # complete line rather than repeating the truncation.
+        og_description = quote
+    elif scene_context:
+        og_description = scene_context
+    else:
+        og_description = f"The Office — S{season}E{episode}"
     page_url = f"{base_url}/quote/{lineno}"
+    og_image = f"{base_url}/og/quote/{lineno}.png"
 
     span = ddtrace.tracer.current_span()
     if span is not None:
         span.set_tag("leash.unfurl.view", "quote")
         span.set_tag("leash.unfurl.og_title", og_title)
+        span.set_tag("leash.unfurl.og_title_len", len(og_title))
+        span.set_tag(
+            "leash.unfurl.og_title_truncated", str(short_quote != quote).lower()
+        )
         span.set_tag("leash.unfurl.og_description_len", len(og_description))
-        span.set_tag("leash.unfurl.has_og_image", False)
+        span.set_tag("leash.unfurl.has_og_image", True)
         span.set_tag("leash.quote.has_scene_context", bool(scene_context))
 
     with h.tag("head"):
         with h.tag("title"):
             h.text(page_title)
-        _add_base_meta(h)
-        h.meta(name="description", content=quote)
-        # Open Graph: the quote itself is the description; no image so the
-        # unfurl renders as a compact text card instead of a grey box.
+        _add_base_meta(h, description=quote)
         h.meta(property="og:title", content=og_title)
         h.meta(property="og:type", content="article")
         h.meta(property="og:url", content=page_url)
         h.meta(property="og:description", content=og_description)
         h.meta(property="og:site_name", content=title)
-        # Twitter card: "summary" gives Slack/Twitter a text-first preview
-        # with no large image region.
-        h.meta(**{"name": "twitter:card", "content": "summary"})
+        # The card image carries the quote as rendered text — it is what
+        # iMessage and Google Messages actually show the recipient.
+        h.meta(property="og:image", content=og_image)
+        h.meta(property="og:image:type", content="image/png")
+        h.meta(property="og:image:width", content=str(ogimage.WIDTH))
+        h.meta(property="og:image:height", content=str(ogimage.HEIGHT))
+        h.meta(property="og:image:alt", content=f"{speakers}: {short_quote}")
+        h.meta(**{"name": "twitter:card", "content": "summary_large_image"})
         h.meta(**{"name": "twitter:title", "content": og_title})
         h.meta(**{"name": "twitter:description", "content": og_description})
+        h.meta(**{"name": "twitter:image", "content": og_image})
     with h.tag("body"):
         with h.tag("h2"):
-            h.text(f"{fmt_chars(chars)} (S{season}E{episode})")
+            h.text(f"{speakers} (S{season}E{episode})")
         if scene_context:
             with h.tag("p", style="color:#555;font-style:italic;margin:0 0 0.5em 0;"):
                 with h.tag("small"):
@@ -200,8 +235,7 @@ def scene(
     with h.tag("head"):
         with h.tag("title"):
             h.text(title)
-        _add_base_meta(h)
-        h.meta(name="description", content=description)
+        _add_base_meta(h, description=description)
         h.meta(property="og:title", content=title)
         h.meta(property="og:type", content="website")
         h.meta(property="og:url", content=page_url)
