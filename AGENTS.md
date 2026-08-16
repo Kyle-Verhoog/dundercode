@@ -162,9 +162,23 @@ bodies. State the finding, not the investigation that produced it.
   procedure; `scripts/validate_prod.sh` is the smoke test and is
   runnable standalone. `scripts/validate_monitoring.sh` checks the
   service is still observable in Datadog (needs ssh).
-- Agent APM receiver stats are aggregated into **one-minute windows, and
-  an idle service is absent from them entirely**. Generate traffic
-  before concluding a tracer is broken.
+- Prod telemetry is queryable through the **Datadog MCP**
+  (`service:dundercode env:prod`). Generate traffic first — an idle
+  service looks exactly like a broken tracer, in both the MCP and the
+  agent's own one-minute stat windows.
+- Live spans carry `version:<sha6>`, so comparing that against the
+  deployed image tag closes the loop from git commit to running code.
+- The APM metric is `trace.asgi.request.hits` — named for the ASGI
+  integration, not the app.
+- **The app ships its own logs** via `ddclient.LogHandler` (`app.py`),
+  with version and trace correlation; `StreamHandler` writes the same
+  records to stderr purely for `docker logs`. So dundercode must **not**
+  carry a `com.datadoghq.ad.logs` label — that makes the agent tail the
+  stderr copy too, landing every line twice with the second copy having
+  no version, no trace correlation, and `status:error`.
+- Consequently the agent's log-source list says nothing about this
+  service: it lists no source for dundercode while logs flow fine.
+  Only a backend query settles whether logs are landing.
 - Log collection is opt-in per container via the
   `com.datadoghq.ad.logs` label in the compose file — container-collect-all
   is off, so a service without the label ships no logs at all.

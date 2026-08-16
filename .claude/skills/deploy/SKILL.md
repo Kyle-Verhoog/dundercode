@@ -1,6 +1,6 @@
 ---
 name: deploy
-description: Deploy dundercode to production at dc.verhoog.ca and validate it, or roll back a bad deploy. Use when asked to deploy, ship, release, or roll back dundercode, or to check whether dc.verhoog.ca is healthy.
+description: Deploy dundercode to production at dc.verhoog.ca and validate it, or roll back a bad deploy. Takes an optional commit-ish to deploy, defaulting to the repo's current HEAD. Use when asked to deploy, ship, release, or roll back dundercode, or to check whether dc.verhoog.ca is healthy.
 ---
 
 # Deploying dundercode
@@ -54,15 +54,32 @@ file pinned to it cannot express what is running or roll back.
 
 ### 1. Preflight
 
-Target is `origin/main` HEAD unless told otherwise. It **must** be on `main`;
-the build workflow's `if:` gate skips every other branch, so no image exists for
-an unmerged commit.
+**The skill takes a commit as its argument** — `/deploy <commit-ish>`, where the
+argument is anything `git rev-parse` accepts (full SHA, short SHA, tag, branch).
+With no argument it defaults to the repo's current `HEAD`.
 
 ```bash
 git fetch origin
-TARGET=$(git rev-parse origin/main)
+TARGET=$(git rev-parse "${1:-HEAD}")
 SHA6=${TARGET:0:6}
 ```
+
+Then check it is **reachable from `origin/main`** — not merely that the local
+branch is called main, and not that it *is* main's tip. Deploying an older
+commit is a legitimate rollback:
+
+```bash
+git merge-base --is-ancestor "$TARGET" origin/main || echo "NOT on main"
+```
+
+If it is not on `main`, stop. The build workflow's `if:` gate skips every other
+branch, so no image was ever published for that commit — the deploy would fail
+at pull time, not at validation. Note that a squash-merged PR branch fails this
+check even though "its" changes are on main: the squash commit has a different
+SHA, and it is that SHA which has an image.
+
+Defaulting to `HEAD` means a stale checkout deploys something old without
+comment, so always report the resolved commit and its subject before going on.
 
 Check the build for that commit with `gh run list --workflow=docker.yml`. If it
 is still running, **wait** — `gh run watch <id> --exit-status`, in the background
@@ -171,28 +188,60 @@ If checks fail, roll back per step 2 rather than debugging in place.
 A deploy can serve perfect responses and silently stop being observable — a
 tracer that fails to start, or a `DD_ENV` that no longer matches the sampler key.
 
+Drive traffic first. Datadog shows nothing for an idle service, and that looks
+identical to a broken tracer:
+
 ```bash
-./scripts/validate_monitoring.sh
+for i in 1 2 3 4 5; do
+  curl -s -o /dev/null https://dc.verhoog.ca/quote/$((2000+i))
+  curl -s -o /dev/null https://dc.verhoog.ca/search/beets
+  curl -s -o /dev/null https://dc.verhoog.ca/og/quote/$((2000+i)).png
+done
 ```
 
-Takes ~40-100s. The agent aggregates receiver stats into **one-minute windows and
-an idle service is simply absent from them**, so the script generates traffic
-first and polls for a window containing it. Absence alone never proves a
-tracing failure — always drive traffic before concluding anything.
+Then query the **Datadog MCP** (`mcp__datadog__*`). Load the `datadog/traces`
+skill first — the server asks for skill discovery before its tools.
 
-It asserts, over `agent status -j` on the host:
+**Traces.** `aggregate_spans`, not `search_datadog_spans`, for counts: a raw span
+search on this service returns ~130 spans of deeply nested tags and will swamp
+the context. Query `service:dundercode env:prod` over `now-15m` and check:
 
-- traces arriving from the python tracer for `service:dundercode`
-- nothing dropped, refused, or malformed
-- the sampler knows `service:dundercode,env:prod` — this is what proves unified
-  service tagging took effect, since the sampler keys on service+env
-- the trace writer is flushing off-host without errors or retries
-- dogstatsd is parsing metrics cleanly
+- spans exist at all
+- **`version` equals the `<sha6>` just deployed** — the single best check in this
+  whole procedure. It closes the loop end to end: git commit → image tag →
+  running container → the version tag on live spans. If this disagrees, the
+  container is not running what you think it is.
+- `status:error` spans have not appeared
 
-Logs are reported as a **WARN, not a failure** — log collection depends on the
-`com.datadoghq.ad.logs` label in `docker-compose.yml` rather than on the image,
-so a missing one is a config gap to fix in that repo, not a reason to block or
-roll back a rollout.
+Expected resources: `GET /`, `GET /quote/?`, `GET /search/beets`,
+`GET /og/quote/?`, plus custom spans `route`, `render`, and
+`dundercode.data.find_lines` carrying `leash.search.*` tags.
+
+**Metrics.** The APM metric is `trace.asgi.request.hits` (with `.duration`,
+`.apdex`, `.hits.by_http_status`). The span is named for the ASGI integration,
+not for the app — do not guess at `trace.route.*` or `trace.dundercode.*`.
+`ml_obs.span` / `ml_obs.trace` cover LLM Obs.
+
+**Logs.** `search_datadog_logs` on `service:dundercode env:prod`. Expect single
+records prefixed with their logger name (`uvicorn.access:`, `dundercode.pages:`)
+carrying `version`, `trace_id` and `status:info`.
+
+**The app ships its own logs**, via `ddclient.LogHandler` in `dundercode/app.py`
+— it does not rely on the agent tailing the container. So the compose file
+deliberately carries **no `com.datadoghq.ad.logs` label** for dundercode. Adding
+one makes the agent *also* collect the `StreamHandler` copy off stderr: every
+line lands twice, and the second copy arrives with no version, no trace
+correlation, and `status:error` (stderr maps to error), double-billing ingest
+and poisoning error-rate queries.
+
+Corollary: the agent's own log-source list is **not** evidence about this
+service either way. It showed nothing for dundercode while logs were flowing
+perfectly — the app's path bypasses it. Only a backend query settles it.
+
+`scripts/validate_monitoring.sh` remains as a credential-free fallback. It reads
+`agent status -j` over ssh, so it proves the *host is shipping* rather than that
+Datadog *received* — weaker, but scriptable and usable when the MCP is not
+connected.
 
 ### 7. Record the deploy
 
@@ -201,6 +250,29 @@ line `Deploy dundercode <sha6>` — and push. That commit is the deploy log entr
 so it should only ever describe a deploy that actually survived steps 5-6.
 
 Report to the user: the commit deployed, the tag, and the check results.
+
+### 8. Reclaim disk
+
+Deploys leave the superseded image behind, and `/` on that box runs tight (81%
+used, 20GB total, as of Aug 2026). Prune **last** — only after step 6 is green:
+
+```bash
+ssh verhoog.ca 'docker system prune -af --filter "until=24h"'
+```
+
+`-a` is what actually reclaims anything here: superseded images keep their SHA
+tags, so they are never *dangling* and a bare `docker system prune` frees ~0B.
+`--filter "until=24h"` then spares the last day's images, keeping the immediately
+previous deploy on disk as the fast rollback path.
+
+This is safe because deploys are pinned to SHA tags that persist in GHCR — a
+pruned image is always re-pullable. Images predating SHA tagging are the
+exception: those exist only under a `latest` that has since moved, so pruning
+them is irreversible.
+
+Report reclaimed space. If the filter spares everything and the disk is still
+tight, say so rather than quietly widening it — dropping `until=24h` deletes the
+rollback image.
 
 ## Working directory
 

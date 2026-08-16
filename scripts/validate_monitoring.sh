@@ -113,14 +113,17 @@ else:
     else:
         ok("no malformed spans")
 
-# --- APM: does the backend know the service? The sampler keys by service+env,
-# so this is what proves unified service tagging actually took effect. ---
+# --- APM: has the sampler keyed this service+env yet? Only a WARN: the rate map
+# is repopulated lazily after a container recreate, so it can be empty for
+# minutes while traces flow perfectly. Absence is not evidence of mistagging --
+# query spans over the Datadog MCP to confirm env for real. ---
 key = "service:%s,env:%s" % (service, env)
 rates = apm.get("ratebyservice") or {}
 if key in rates:
     ok("sampler knows %s (rate %.0f%%)" % (key, rates[key] * 100))
 else:
-    bad("sampler knows %s" % key, "ratebyservice: %s" % json.dumps(rates))
+    warn("sampler has not keyed %s yet" % key,
+         "ratebyservice: %s -- normal shortly after a recreate" % json.dumps(rates))
 
 # --- APM: are traces leaving the host, not just arriving at the agent? ---
 tw = apm.get("trace_writer") or {}
@@ -142,17 +145,20 @@ elif ds.get("MetricPackets", 0) > 0:
 else:
     bad("dogstatsd healthy", "no metric packets received")
 
-# --- Logs: a gap rather than a regression, so warn instead of failing. ---
+# --- Logs: the agent should NOT be tailing this container. ---
+# dundercode ships its own logs via ddclient.LogHandler, so the agent tailing it
+# too would double-bill every line and file the stderr copies as status:error.
+# An absent source here is correct; this check cannot see the app's own path at
+# all -- only a backend query (the Datadog MCP) can confirm logs actually land.
 sources = [s for i in (d.get("logsStats") or {}).get("integrations", [])
            for s in i.get("sources", [])]
 tailed = {s.get("configuration", {}).get("Service") for s in sources}
 if service in tailed:
-    ok("logs tailed")
+    bad("agent is not double-collecting logs",
+        "agent is tailing %s's container log, but the app already ships its own "
+        "-- remove the com.datadoghq.ad.logs label from docker-compose.yml" % service)
 else:
-    warn("logs are NOT collected for %s" % service,
-         "tailed: %s. dundercode has no com.datadoghq.ad.logs label in "
-         "docker-compose.yml (meatmap does), and container-collect-all is off."
-         % (sorted(t for t in tailed if t) or "nothing"))
+    ok("agent is not double-collecting logs")
 
 print()
 print("%d passed, %d failed" % (passed, failed))
