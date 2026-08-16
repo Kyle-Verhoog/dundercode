@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./scripts/validate_prod.sh)",
+      "Bash(./scripts/validate_prod.sh *)",
+      "Bash(curl -s -o /dev/null *https://dc.verhoog.ca*)",
+      "Bash(curl -s https://dc.verhoog.ca*)",
+      "Bash(curl -s https://ghcr.io/*)",
+      "Bash(gh run watch *)",
+      "Bash(git merge-base *)",
+      "Bash(git fetch *)",
+      "mcp__datadog__search_datadog_logs",
+      "mcp__datadog__search_datadog_spans",
+      "mcp__datadog__aggregate_spans",
+      "mcp__datadog__search_datadog_metrics",
+      "mcp__datadog__search_datadog_services",
+      "mcp__datadog__list_datadog_skills",
+      "mcp__datadog__load_datadog_skill"
+    ]
+  }
+}
