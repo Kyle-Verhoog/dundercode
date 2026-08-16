@@ -213,11 +213,22 @@ results carry deeply nested tag blocks and will swamp the context even at modest
 volumes. Query `service:dundercode env:prod` over `now-15m` and check:
 
 - spans exist at all
-- **`version` equals the `<sha6>` just deployed** — the single best check in this
+- **the deployed `<sha6>` is what is running** — the single best check in this
   whole procedure. It closes the loop end to end: git commit → image tag →
-  running container → the version tag on live spans. If this disagrees, the
-  container is not running what you think it is.
+  running container → live telemetry. If this disagrees, the container is not
+  running what you think it is.
 - `status:error` spans have not appeared
+
+Filter on **`image_tag:<sha6>`**, which is a real tag and works in queries.
+`version:<sha6>` does *not* — the version lives in span custom data, not as a
+searchable facet, so that query returns zero for a perfectly healthy service.
+Neither `version` nor `status` is groupable either; grouping on them yields zero
+buckets. Group by `resource_name` for a per-endpoint breakdown, and read
+`version` off a raw span when you want to see it directly.
+
+Whenever a query comes back empty, re-run it without the filters before
+concluding anything — an empty result here is far more often a wrong facet than
+a broken deploy.
 
 Expected resources: `GET /`, `GET /quote/?`, `GET /search/beets`,
 `GET /og/quote/?`, plus custom spans `route`, `render`, and
