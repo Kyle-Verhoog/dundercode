@@ -14,20 +14,29 @@ jobs:
     - uses: docker/setup-buildx-action@v2
     - id: set_names
       run: |
-        if [ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]; then
-          DOCKER_IMAGE_TAG=$(echo ${GITHUB_REF} | sed -e "s/refs\/tags\///g")
-        else
-          DOCKER_IMAGE_TAG="latest"
-        fi
         DOCKER_IMAGE_NAME=dundercode
         DOCKER_IMAGE_NAME=$(echo ghcr.io/${GITHUB_REPOSITORY}/${DOCKER_IMAGE_NAME} | tr '[:upper:]' '[:lower:]')
-        DOCKER_IMAGE_NAME_WITH_TAG=$(echo ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} | tr '[:upper:]' '[:lower:]')
-        echo "Using image name '$DOCKER_IMAGE_NAME_WITH_TAG'"
-        echo "::set-output name=image_name::$DOCKER_IMAGE_NAME_WITH_TAG"
+
+        # Every build gets an immutable tag: the 6-char commit SHA prefix.
+        # That is deliberately the *same* string the app reports to Datadog as
+        # its version -- dundercode/dd.py sets version_use_git=True, which
+        # resolves to hexsha[0:6] of the HEAD commit at runtime. Deploys pin
+        # this tag, so an image tag, a running container and a `version:` tag
+        # on a span all name the same commit.
+        DOCKER_IMAGE_TAGS=${DOCKER_IMAGE_NAME}:${GITHUB_SHA:0:6}
+
+        # ...plus a moving tag for convenience. Never deploy from these.
+        if [ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]; then
+          DOCKER_IMAGE_TAGS="${DOCKER_IMAGE_TAGS},${DOCKER_IMAGE_NAME}:${GITHUB_REF#refs/tags/}"
+        else
+          DOCKER_IMAGE_TAGS="${DOCKER_IMAGE_TAGS},${DOCKER_IMAGE_NAME}:latest"
+        fi
+        echo "Using image tags '$DOCKER_IMAGE_TAGS'"
+        echo "tags=$DOCKER_IMAGE_TAGS" >> "$GITHUB_OUTPUT"
     - run: docker login -u publisher -p ${{ secrets.GITHUB_TOKEN }} ghcr.io
     - uses: docker/build-push-action@v3
       with:
         push: true
-        tags: ${{ steps.set_names.outputs.image_name }}
+        tags: ${{ steps.set_names.outputs.tags }}
         platforms: "linux/amd64,linux/arm64/v8"
         context: .
