@@ -4,6 +4,9 @@ Durable notes for coding agents working on this repo. Terse by design.
 Add an entry only when a lesson is generalisable beyond the current
 task. Do not duplicate what the code or tests already express.
 
+Write everything else that way too — replies, commit messages, PR
+bodies. State the finding, not the investigation that produced it.
+
 ## Tracing
 
 - Tracing is wired via **ddkypy** (`from .dd import ddclient`), a custom
@@ -151,3 +154,36 @@ task. Do not duplicate what the code or tests already express.
 - Traces flow through the local agent at `localhost:8126` like other
   APM traces. Set `DD_LLMOBS_AGENTLESS_ENABLED=1` to send directly to
   Datadog instead.
+
+## Deploys and versioning
+
+- Procedure lives in `.claude/skills/deploy/SKILL.md`.
+  `scripts/validate_prod.sh` is the HTTP smoke test and runs standalone.
+  Telemetry is checked by querying Datadog, not by inspecting the agent.
+- Images are tagged with the **6-char commit SHA prefix**, the same
+  string `version_use_git=True` makes ddkypy report to Datadog
+  (`hexsha[0:6]` of `HEAD`). Image tag, running container and the
+  `version:` tag on a span therefore all name one commit. Deploy pinned
+  SHA tags; `latest` is published but never deployed.
+- **`version_use_git` needs `.git` *and* the `git` binary inside the
+  image**, and both survive only by accident: `.dockerignore` lists just
+  `key`, and `RUN apt remove git gcc` has no `-y`, so it fails and the
+  `;` swallows the error. Adding that `-y`, or excluding `.git`, makes
+  `DDConfig` raise at import — the app fails to boot, it does not
+  degrade to an unset version. Bake `DD_VERSION` at build time to remove
+  the coupling.
+- **The app ships its own logs** via `ddclient.LogHandler` (`app.py`),
+  with version and trace correlation; `StreamHandler` writes the same
+  records to stderr purely for `docker logs`. So the container must
+  **not** carry a `com.datadoghq.ad.logs` label — that makes the agent
+  tail the stderr copy too, landing every line twice, the second with no
+  version, no trace correlation, and `status:error`.
+- Consequently the agent's log-source list is no evidence about this
+  service: it lists no source for dundercode while logs flow fine. Only
+  a backend query settles it.
+- Telemetry is queryable through the Datadog MCP
+  (`service:dundercode env:prod`). Drive traffic before concluding
+  anything — an idle service is indistinguishable from a broken tracer,
+  in the MCP and in the agent's own stat windows alike.
+- The APM metric is `trace.asgi.request.hits`, named for the ASGI
+  integration rather than the app.
