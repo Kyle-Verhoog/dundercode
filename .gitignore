@@ -13,5 +13,6 @@ pip-delete-this-directory.txt
 .venv/
 transcript.csv
 key
+.env
 build/
 cache/

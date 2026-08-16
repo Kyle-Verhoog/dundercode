@@ -75,10 +75,7 @@ def _format_scene(season: int, episode: int, scene: int) -> Optional[str]:
     lines = list(data.get_lines_for_scene(season=season, episode=episode, scene=scene))
     if not lines:
         return None
-    body = "\n".join(
-        f"{', '.join(s.capitalize() for s in line.speakers)}: {line.line}"
-        for line in lines
-    )
+    body = "\n".join(f"{', '.join(line.speakers)}: {line.line}" for line in lines)
     return f"S{season}E{episode} scene {scene}:\n{body}"
 
 

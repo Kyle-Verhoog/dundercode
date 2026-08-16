@@ -24,11 +24,14 @@ def _read_data() -> List[Line]:
         split = entry.split(",")
         season, ep, scene = split[0:3]
         char, deleted = split[-2:]
-        if "and" in char:
-            chars = char.split("and")
-        else:
-            chars = [char]
-        chars = [c.lower().strip() for c in chars]
+        # Multi-speaker lines are written "Jim and Pam". Split on the
+        # separator with its spaces — a bare "and" also matches inside
+        # names like Brandon, Randy and Prince Grandfather.
+        chars = char.split(" and ")
+        # Keep the transcript's own casing: names are normalised in the
+        # data, and lowercasing here would render 'AJ' as 'Aj' and
+        # 'David Wallace' as 'David wallace'. Matching lowercases instead.
+        chars = [c.strip() for c in chars]
         line = split[3:-2]
         line = ",".join(line).strip('"')
         data.append(Line(lineno, int(season), int(ep), int(scene), chars, line))
@@ -75,7 +78,8 @@ def find_lines(
     appears (case-insensitively) in the line body or in a speaker name.
     All tokens must be present, order-independent; no regex surprises.
     """
-    query_chars: Set[str] = set(characters) if characters is not None else _characters()
+    chars_in = characters if characters is not None else _characters()
+    query_chars: Set[str] = {c.lower() for c in chars_in}
     tokens: List[str] = [t.lower().strip() for t in query_str.split() if t.strip()]
 
     span = ddtrace.tracer.current_span()
@@ -85,11 +89,12 @@ def find_lines(
         span.set_tag("leash.search.strategy", "all_tokens")
 
     def _matches(line: Line) -> bool:
-        if not query_chars.intersection(line.speakers):
+        speakers = [s.lower() for s in line.speakers]
+        if not query_chars.intersection(speakers):
             return False
         if not tokens:
             return True
-        haystacks = [line.line.lower(), *line.speakers]
+        haystacks = [line.line.lower(), *speakers]
         return all(any(tok in h for h in haystacks) for tok in tokens)
 
     matches = [line for line in _lines if _matches(line)]

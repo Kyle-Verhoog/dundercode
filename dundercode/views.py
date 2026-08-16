@@ -5,10 +5,10 @@ import ddtrace
 from .html import Html
 
 
-def _fmt_chars(chars: List[str]):
-    chars = [char.capitalize() for char in chars]
+def fmt_chars(chars: List[str]):
+    # Names arrive cased as the transcript has them ('AJ', 'David Wallace').
     return (
-        "%s and %s" % (",".join(chars[:-1]), chars[-1]) if len(chars) > 1 else chars[0]
+        "%s and %s" % (", ".join(chars[:-1]), chars[-1]) if len(chars) > 1 else chars[0]
     )
 
 
@@ -106,7 +106,7 @@ def search(
         for lineno, season, ep, scene, chars, line in results:
             with h.tag("p"):
                 with h.tag("a", href=f"/quote/{lineno}"):
-                    h.text(f"{_fmt_chars(chars)} in S{season}E{ep}:")
+                    h.text(f"{fmt_chars(chars)} in S{season}E{ep}:")
             with h.tag("blockquote"):
                 h.text(line)
         if not results:
@@ -127,7 +127,7 @@ def quote(
     base_url: str = "",
 ) -> Html:
     h = _base_page()
-    speakers = _fmt_chars(chars)
+    speakers = fmt_chars(chars)
     page_title = f"S{season}E{episode} {speakers} quote - {title}"
     og_title = f"{speakers} — S{season}E{episode}"
     og_description = quote
@@ -160,7 +160,7 @@ def quote(
         h.meta(**{"name": "twitter:description", "content": og_description})
     with h.tag("body"):
         with h.tag("h2"):
-            h.text(f"{_fmt_chars(chars)} (S{season}E{episode})")
+            h.text(f"{fmt_chars(chars)} (S{season}E{episode})")
         if scene_context:
             with h.tag("p", style="color:#555;font-style:italic;margin:0 0 0.5em 0;"):
                 with h.tag("small"):
@@ -195,7 +195,7 @@ def scene(
 ) -> Html:
     h = _base_page()
     title = f"S{season}E{episode} scene {scene} - {title}"
-    description = f"{_fmt_chars(chars)} scene"
+    description = f"{fmt_chars(chars)} scene"
     page_url = f"{base_url}/scene/{season},{episode},{scene}"
     with h.tag("head"):
         with h.tag("title"):
@@ -212,7 +212,7 @@ def scene(
             h.text(f"S{season}E{episode} scene {scene}")
         for lineno, chars, line in lines:
             with h.tag("p"):
-                h.text(f"{_fmt_chars(chars)}: ")
+                h.text(f"{fmt_chars(chars)}: ")
                 with h.tag("q"):
                     h.text(f"{line}")
                 with h.tag("sup"):

@@ -47,6 +47,42 @@ task. Do not duplicate what the code or tests already express.
 - Slack caches unfurls per URL; when testing, use an unseen path
   (e.g. a different quote id) or have Slack re-fetch.
 
+## Transcript data (`transcript`, `transcript.csv`)
+
+- Line numbers are positional and `/quote/{id}` URLs are those indices —
+  **never add or remove lines**, or every shared link points at a
+  different quote.
+- Speaker names are normalised to one spelling per character. A single
+  speaker is a bare name; multiple speakers are joined with **` and `**
+  (`Jim and Pam`, `Andy and Creed and Kevin and Kelly`) — never `/`, `&`
+  or comma lists.
+- The separator is ` and ` **with its spaces**: a bare `and` also occurs
+  inside names like Brandon, Randy, Rolando, Amanda and Prince
+  Grandfather.
+- Names carry their own casing (`AJ`, `David Wallace`) and matching is
+  case-insensitive, so never case-fold the data.
+- Qualified in-scene variants (`Video Michael`, `Michael [on phone]`,
+  screen names like `JIM9334` and `Receptionitis15`) are merged into the
+  character. Deliberate exceptions, kept separate because they are *not*
+  that character: `Fake Jim` (S9E3, an impostor Jim hires),
+  `Fake Stanley`, relatives (`Pam's Mom`, `Jim's Dad`), and devices
+  (`Kevin's computer`, `Erin's Cell Phone`, `DunMiff/sys`).
+- **Main cast go by first name** (`Michael`, `Jim`, `Ryan`, `Nellie`,
+  `Jan`, …). **Recurring non-main characters go by full name**:
+  `David Wallace`, `Robert California`, `Jo Bennett`, `Carol Stills`,
+  `Bob Vance`, `Senator Lipton`, `Diane Kelly`, `Merv Bronte`,
+  `Phil Maguire`, `Barbara Allen`, `Fred Henry`, `Paul Faust`,
+  `Teddy Wallace`, `Carla Fern`, `Concierge Marie`.
+- A first name that means **different people in different episodes** is
+  renamed per-episode, not globally: `Robert` is Robert California only
+  from S7E24 on (S7E11's Robert is someone else), and `Carla` is Carla
+  Fern only in S9E19 (S7E7's Carla is a nurse). Same trap in
+  `Walter` (Andy's father) vs `Walter Jr` (his brother), `Julius` vs
+  `Julius Irving`, `Professor` (Monaghan) vs `Professor Powell`,
+  `Donna` (Newton) vs `Donna Muraski`, and the celebrity cameos
+  (`Jessica` vs `Jessica Alba`, `Mark` vs `Mark McGrath`, `Christian` vs
+  `Christian Slater`). Check episode overlap before merging any pair.
+
 ## AI scene context (`dundercode.ai.scene_context`)
 
 - `/quote/{id}` renders a 1-2 sentence summary above the quote so
