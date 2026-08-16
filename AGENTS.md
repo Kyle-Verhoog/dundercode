@@ -158,9 +158,8 @@ bodies. State the finding, not the investigation that produced it.
 ## Deploys and versioning
 
 - Procedure lives in `.claude/skills/deploy/SKILL.md`.
-  `scripts/validate_prod.sh` (HTTP smoke test) and
-  `scripts/validate_monitoring.sh` (agent-side telemetry check) both run
-  standalone.
+  `scripts/validate_prod.sh` is the HTTP smoke test and runs standalone.
+  Telemetry is checked by querying Datadog, not by inspecting the agent.
 - Images are tagged with the **6-char commit SHA prefix**, the same
   string `version_use_git=True` makes ddkypy report to Datadog
   (`hexsha[0:6]` of `HEAD`). Image tag, running container and the

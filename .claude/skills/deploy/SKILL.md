@@ -237,10 +237,19 @@ Corollary: the agent's own log-source list is **not** evidence about this
 service either way. It showed nothing for dundercode while logs were flowing
 perfectly — the app's path bypasses it. Only a backend query settles it.
 
-`scripts/validate_monitoring.sh` remains as a credential-free fallback. It reads
-`agent status -j` over ssh, so it proves the *host is shipping* rather than that
-Datadog *received* — weaker, but scriptable and usable when the MCP is not
-connected.
+**If traces look thin or absent** after real traffic, the backend cannot tell you
+why — spans the agent drops or rejects never reach it. Ask the agent directly:
+
+```bash
+ssh verhoog.ca 'docker exec verhoogca-datadog-1 agent status -j' \
+  | python3 -c 'import json,sys; a=json.load(sys.stdin)["apmStats"];
+print(a["receiver"]); print(a["trace_writer"])'
+```
+
+Look for a receiver entry naming this service, non-zero `TracesDropped` /
+`SpansDropped` / `PayloadRefused`, and writer `Errors`. Note the receiver reports
+one-minute windows, so an idle service is absent from it — drive traffic first,
+and never read absence as failure.
 
 ### 7. Record the deploy
 
