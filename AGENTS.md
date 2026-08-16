@@ -157,42 +157,34 @@ bodies. State the finding, not the investigation that produced it.
 
 ## Deploys and versioning
 
-- Prod is one container on `verhoog.ca` behind nginx, served at
-  `dc.verhoog.ca`. See `.claude/skills/deploy/SKILL.md` for the
-  procedure; `scripts/validate_prod.sh` is the smoke test and is
-  runnable standalone. `scripts/validate_monitoring.sh` checks the
-  service is still observable in Datadog (needs ssh).
-- Prod telemetry is queryable through the **Datadog MCP**
-  (`service:dundercode env:prod`). Generate traffic first — an idle
-  service looks exactly like a broken tracer, in both the MCP and the
-  agent's own one-minute stat windows.
-- Live spans carry `version:<sha6>`, so comparing that against the
-  deployed image tag closes the loop from git commit to running code.
-- The APM metric is `trace.asgi.request.hits` — named for the ASGI
-  integration, not the app.
-- **The app ships its own logs** via `ddclient.LogHandler` (`app.py`),
-  with version and trace correlation; `StreamHandler` writes the same
-  records to stderr purely for `docker logs`. So dundercode must **not**
-  carry a `com.datadoghq.ad.logs` label — that makes the agent tail the
-  stderr copy too, landing every line twice with the second copy having
-  no version, no trace correlation, and `status:error`.
-- Consequently the agent's log-source list says nothing about this
-  service: it lists no source for dundercode while logs flow fine.
-  Only a backend query settles whether logs are landing.
-- Log collection is opt-in per container via the
-  `com.datadoghq.ad.logs` label in the compose file — container-collect-all
-  is off, so a service without the label ships no logs at all.
-- Images are tagged with the **6-char commit SHA prefix**, which is the
-  same string `version_use_git=True` makes ddkypy report to Datadog
+- Procedure lives in `.claude/skills/deploy/SKILL.md`.
+  `scripts/validate_prod.sh` (HTTP smoke test) and
+  `scripts/validate_monitoring.sh` (agent-side telemetry check) both run
+  standalone.
+- Images are tagged with the **6-char commit SHA prefix**, the same
+  string `version_use_git=True` makes ddkypy report to Datadog
   (`hexsha[0:6]` of `HEAD`). Image tag, running container and the
   `version:` tag on a span therefore all name one commit. Deploy pinned
   SHA tags; `latest` is published but never deployed.
-- The deployed commit is readable off the container:
-  `docker exec verhoogca-dundercode-1 git rev-parse HEAD`.
 - **`version_use_git` needs `.git` *and* the `git` binary inside the
-  image**, and both survive only by accident. `.dockerignore` lists just
+  image**, and both survive only by accident: `.dockerignore` lists just
   `key`, and `RUN apt remove git gcc` has no `-y`, so it fails and the
   `;` swallows the error. Adding that `-y`, or excluding `.git`, makes
   `DDConfig` raise at import — the app fails to boot, it does not
-  degrade to an unset version. Bake `DD_VERSION` at build time if you
-  want to remove the coupling.
+  degrade to an unset version. Bake `DD_VERSION` at build time to remove
+  the coupling.
+- **The app ships its own logs** via `ddclient.LogHandler` (`app.py`),
+  with version and trace correlation; `StreamHandler` writes the same
+  records to stderr purely for `docker logs`. So the container must
+  **not** carry a `com.datadoghq.ad.logs` label — that makes the agent
+  tail the stderr copy too, landing every line twice, the second with no
+  version, no trace correlation, and `status:error`.
+- Consequently the agent's log-source list is no evidence about this
+  service: it lists no source for dundercode while logs flow fine. Only
+  a backend query settles it.
+- Telemetry is queryable through the Datadog MCP
+  (`service:dundercode env:prod`). Drive traffic before concluding
+  anything — an idle service is indistinguishable from a broken tracer,
+  in the MCP and in the agent's own stat windows alike.
+- The APM metric is `trace.asgi.request.hits`, named for the ASGI
+  integration rather than the app.

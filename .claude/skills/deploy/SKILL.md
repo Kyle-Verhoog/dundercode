@@ -83,8 +83,7 @@ comment, so always report the resolved commit and its subject before going on.
 
 Check the build for that commit with `gh run list --workflow=docker.yml`. If it
 is still running, **wait** — `gh run watch <id> --exit-status`, in the background
-since builds take ~6-7 min (two platforms, `linux/amd64` and `linux/arm64/v8`).
-Abort if it failed.
+since it builds two platforms and takes several minutes. Abort if it failed.
 
 Then confirm the tag really landed, before touching the server:
 
@@ -104,9 +103,9 @@ ssh verhoog.ca 'docker exec verhoogca-dundercode-1 git rev-parse HEAD;
                 docker inspect verhoogca-dundercode-1 --format "{{.Image}}"'
 ```
 
-Images built before Aug 2026 have no SHA tag, so for those the digest is the
-*only* way back. Roll back by pinning `image:` to a tag — or to
-`dundercode@sha256:<digest>` — and repeating steps 3-4.
+Roll back by pinning `image:` to the previous SHA tag and repeating steps 3-4.
+An image predating SHA tagging has no tag to pin, so for those the digest is the
+only way back — pin `dundercode@sha256:<digest>` instead.
 
 ### 3. Pin the version and sync config
 
@@ -125,8 +124,8 @@ Treat a silent run without the `DRIFT CHECK: clean` line as a failed check, not
 as a pass.
 
 **Clean:** proceed. **Drift:** stop and show the user. Do not guess a direction —
-the server copy is hand-edited, so it is sometimes *ahead* of the repo (it was in
-Mar 2026, undetected for five months). Ask which way to reconcile.
+the server copy is hand-edited, so it is sometimes *ahead* of the repo, and has
+sat that way unnoticed for months. Ask which way to reconcile.
 
 Then set the tag in `~/dev/verhoog.ca/docker-compose.yml`:
 
@@ -164,8 +163,8 @@ Assert the container is running the intended commit:
 ssh verhoog.ca 'docker exec verhoogca-dundercode-1 git rev-parse HEAD'   # == $TARGET
 ```
 
-Then run the smoke tests (allow ~10s first — the app parses a 6.5 MB transcript
-at boot):
+Then run the smoke tests. Allow a few seconds first — the app decrypts and parses
+the whole transcript at import, so it serves nothing until that finishes:
 
 ```bash
 ./scripts/validate_prod.sh
@@ -202,9 +201,9 @@ done
 Then query the **Datadog MCP** (`mcp__datadog__*`). Load the `datadog/traces`
 skill first — the server asks for skill discovery before its tools.
 
-**Traces.** `aggregate_spans`, not `search_datadog_spans`, for counts: a raw span
-search on this service returns ~130 spans of deeply nested tags and will swamp
-the context. Query `service:dundercode env:prod` over `now-15m` and check:
+**Traces.** `aggregate_spans`, not `search_datadog_spans`, for counts: raw span
+results carry deeply nested tag blocks and will swamp the context even at modest
+volumes. Query `service:dundercode env:prod` over `now-15m` and check:
 
 - spans exist at all
 - **`version` equals the `<sha6>` just deployed** — the single best check in this
@@ -253,8 +252,9 @@ Report to the user: the commit deployed, the tag, and the check results.
 
 ### 8. Reclaim disk
 
-Deploys leave the superseded image behind, and `/` on that box runs tight (81%
-used, 20GB total, as of Aug 2026). Prune **last** — only after step 6 is green:
+Deploys leave the superseded image behind, and `/` on that box is small enough
+that they add up — check `df -h /` and `docker system df` first, and report both.
+Prune **last**, only after step 6 is green:
 
 ```bash
 ssh verhoog.ca 'docker system prune -af --filter "until=24h"'
@@ -276,10 +276,10 @@ rollback image.
 
 ## Working directory
 
-Steps that touch `git`, `gh` or `./scripts/` assume you are in the dundercode
-repo. Shell cwd resets between calls here, so `cd /Users/kyle/dev/dundercode`
-in the same command or use absolute paths — otherwise `git rev-parse
-origin/main` resolves against verhoog.ca and fails with `unknown revision`.
+Steps that touch `git`, `gh` or `./scripts/` assume you are in the repo holding
+this skill. Shell cwd resets between calls, so `cd` there in the same command or
+use absolute paths — otherwise `git rev-parse origin/main` resolves against
+whichever repo you last visited and fails with `unknown revision`.
 
 ## Known sharp edges
 
@@ -288,7 +288,7 @@ origin/main` resolves against verhoog.ca and fails with `unknown revision`.
   no `-y`, so it fails and `;` swallows it. "Fixing" either makes `DDConfig`
   raise at import and the app fail to start outright. See AGENTS.md.
 - **`/search` with no trailing slash** slices to an empty query and returns the
-  whole transcript (~9.3 MB).
+  entire transcript in one response.
 - **`og:url` and `og:image` are emitted as `http://`**, though the site is
   HTTPS-only. nginx does not set `X-Forwarded-Proto`, so the app cannot see the
   real scheme. Unfurlers follow the 301, but it is worth fixing at the nginx
