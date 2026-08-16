@@ -151,3 +151,24 @@ task. Do not duplicate what the code or tests already express.
 - Traces flow through the local agent at `localhost:8126` like other
   APM traces. Set `DD_LLMOBS_AGENTLESS_ENABLED=1` to send directly to
   Datadog instead.
+
+## Deploys and versioning
+
+- Prod is one container on `verhoog.ca` behind nginx, served at
+  `dc.verhoog.ca`. See `.claude/skills/deploy/SKILL.md` for the
+  procedure; `scripts/validate_prod.sh` is the smoke test and is
+  runnable standalone.
+- Images are tagged with the **6-char commit SHA prefix**, which is the
+  same string `version_use_git=True` makes ddkypy report to Datadog
+  (`hexsha[0:6]` of `HEAD`). Image tag, running container and the
+  `version:` tag on a span therefore all name one commit. Deploy pinned
+  SHA tags; `latest` is published but never deployed.
+- The deployed commit is readable off the container:
+  `docker exec verhoogca-dundercode-1 git rev-parse HEAD`.
+- **`version_use_git` needs `.git` *and* the `git` binary inside the
+  image**, and both survive only by accident. `.dockerignore` lists just
+  `key`, and `RUN apt remove git gcc` has no `-y`, so it fails and the
+  `;` swallows the error. Adding that `-y`, or excluding `.git`, makes
+  `DDConfig` raise at import — the app fails to boot, it does not
+  degrade to an unset version. Bake `DD_VERSION` at build time if you
+  want to remove the coupling.
