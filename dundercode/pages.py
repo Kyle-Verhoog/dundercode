@@ -6,6 +6,7 @@ from asgiref.typing import HTTPScope
 from . import ai
 from . import data
 from . import ogimage
+from . import timing
 from . import views
 from .html import Html
 
@@ -40,7 +41,12 @@ def index(_: HTTPScope) -> Html:
 def search(scope: HTTPScope):
     query = scope["path"][len("/search/") :]
     logger.info("using query %r", query)
-    results = list(data.find_lines(query))
+    # Built explicitly rather than passing Lines through: the view unpacks
+    # these positionally and a new field on Line would silently break it.
+    results = [
+        (l.lineno, l.season, l.episode, l.scene, l.speakers, l.line)
+        for l in data.find_lines(query)
+    ]
     return views.search(
         title="dundercode",
         query=query,
@@ -69,6 +75,8 @@ def quote(scope: HTTPScope) -> Html:
         chars=line.speakers,
         quote=line.line,
         scene_context=context,
+        offset_seconds=timing.estimate_offset(line),
+        deleted=line.deleted,
         base_url=_base_url(scope),
     )
 
