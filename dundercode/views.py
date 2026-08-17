@@ -253,10 +253,13 @@ def scene(
                     with h.tag("small"):
                         with h.tag("a", href=f"/quote/{lineno}"):
                             h.text("†")
+        # The first and last scenes of an episode have one neighbour, so
+        # the separator only goes between two links that are both there.
         if prev_scene_href:
             with h.tag("a", href=prev_scene_href):
                 h.text("previous scene")
-        h.text(", ")
+        if prev_scene_href and next_scene_href:
+            h.text(", ")
         if next_scene_href:
             with h.tag("a", href=next_scene_href):
                 h.text("next scene")

@@ -85,6 +85,14 @@ bodies. State the finding, not the investigation that produced it.
 - Line numbers are positional and `/quote/{id}` URLs are those indices —
   **never add or remove lines**, or every shared link points at a
   different quote.
+- **Scene numbering has holes.** Some scene numbers within an episode
+  have no lines at all — the rows are absent upstream, not filtered by
+  us. So a scene's neighbour is not `scene±1`; use
+  `data.get_adjacent_scenes`, and expect `/scene/…` to 404 for numbers
+  in a hole.
+- The deleted-scene flag is **not** what makes a scene empty: deleted
+  lines are loaded and render like any other, sharing one scene
+  numbering sequence with the aired ones (mostly appended after them).
 - Speaker names are normalised to one spelling per character. A single
   speaker is a bare name; multiple speakers are joined with **` and `**
   (`Jim and Pam`, `Andy and Creed and Kevin and Kelly`) — never `/`, `&`
