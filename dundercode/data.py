@@ -1,6 +1,15 @@
 import functools
 import re
-from typing import Callable, Generator, Iterable, List, NamedTuple, Optional, Set
+from typing import (
+    Callable,
+    Generator,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Set,
+    Tuple,
+)
 
 import ddtrace
 
@@ -65,6 +74,36 @@ def _characters() -> Set[str]:
 def get_lines_for_scene(season: int, episode: int, scene: int) -> Iterable[Line]:
     return _lines_iter(
         lambda l: l.scene == scene and l.episode == episode and l.season == season
+    )
+
+
+@functools.lru_cache(maxsize=None)
+def get_scene_numbers(season: int, episode: int) -> Tuple[int, ...]:
+    """Scene numbers that have lines in an episode, ascending.
+
+    The transcript's scene numbering has holes — 47 numbers across 8
+    episodes have no lines at all — so a scene's neighbours are not
+    reliably ±1 and have to be looked up rather than computed.
+    """
+    return tuple(
+        sorted(
+            {l.scene for l in _lines if l.season == season and l.episode == episode}
+        )
+    )
+
+
+def get_adjacent_scenes(
+    season: int, episode: int, scene: int
+) -> Tuple[Optional[int], Optional[int]]:
+    """The previous and next scenes with lines, None past either end."""
+    numbers = get_scene_numbers(season, episode)
+    try:
+        i = numbers.index(scene)
+    except ValueError:
+        return None, None
+    return (
+        numbers[i - 1] if i > 0 else None,
+        numbers[i + 1] if i + 1 < len(numbers) else None,
     )
 
 

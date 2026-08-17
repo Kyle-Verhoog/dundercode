@@ -108,12 +108,21 @@ async def application(
             return
 
         route = _router(scope)
-        if route is None:
+        body: Optional[str] = None
+        if route is not None:
+            try:
+                # Render before the response starts. Sending the 200 first
+                # leaves a handler failure no way out but a dropped
+                # connection, which a browser shows as a blank page.
+                body = route(scope).render()
+            except pages.NotFound:
+                body = None
+        if body is None:
             await send(_http_start(404))
             await send(_http_body(views.not_found().render()))
         else:
             await send(_http_start(200))
-            await send(_http_body(route(scope).render()))
+            await send(_http_body(body))
     else:
         raise NotImplementedError
 

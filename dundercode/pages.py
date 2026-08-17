@@ -13,6 +13,15 @@ from .html import Html
 logger = logging.getLogger(__name__)
 
 
+class NotFound(Exception):
+    """Raised by a handler when the request names something that isn't there.
+
+    The application turns this into a 404. Handlers must raise it rather
+    than letting an IndexError or ValueError escape, which the ASGI server
+    can only answer with a dropped connection.
+    """
+
+
 def _base_url(scope: HTTPScope) -> str:
     scheme = scope.get("scheme", "https")
     headers = dict(scope.get("headers", []))
@@ -41,8 +50,13 @@ def search(scope: HTTPScope):
 
 
 def quote(scope: HTTPScope) -> Html:
-    lineno = int(scope["path"][len("/quote/") :])
-    line = data.get_line(lineno)
+    try:
+        lineno = int(scope["path"][len("/quote/") :])
+        if lineno < 0:  # negative indices would silently wrap to the tail
+            raise NotFound
+        line = data.get_line(lineno)
+    except (ValueError, IndexError):
+        raise NotFound
     context = ai.scene_context(
         season=line.season, episode=line.episode, scene=line.scene
     )
@@ -74,24 +88,35 @@ def quote_og_image(scope: HTTPScope) -> Optional[bytes]:
 
 
 def scene(scope: HTTPScope) -> Html:
-    season, episode, scene = map(int, scope["path"][len("/scene/") :].split(","))
+    try:
+        season, episode, scene = map(int, scope["path"][len("/scene/") :].split(","))
+    except ValueError:  # wrong arity or non-numeric parts
+        raise NotFound
     lines = list(data.get_lines_for_scene(season=season, episode=episode, scene=scene))
-    if lines:
-        chars = set()
-        _lines = []
-        for line in lines:
-            chars = chars.union(set(line.speakers))
-            _lines.append((line.lineno, line.speakers, line.line))
-        return views.scene(
-            title="dundercode",
-            season=season,
-            episode=episode,
-            scene=scene,
-            chars=list(chars),
-            lines=_lines,
-            prev_scene_href=f"/scene/{season},{episode},{scene-1}",
-            next_scene_href=f"/scene/{season},{episode},{scene+1}",
-            base_url=_base_url(scope),
-        )
-    else:
-        raise NotImplementedError
+    if not lines:
+        raise NotFound
+
+    chars = set()
+    _lines = []
+    for line in lines:
+        chars = chars.union(set(line.speakers))
+        _lines.append((line.lineno, line.speakers, line.line))
+    # Neighbours come from the scenes that exist, not scene±1: the
+    # transcript's numbering has holes, and linking to one renders a
+    # "previous scene" that leads nowhere.
+    prev_scene, next_scene = data.get_adjacent_scenes(season, episode, scene)
+    return views.scene(
+        title="dundercode",
+        season=season,
+        episode=episode,
+        scene=scene,
+        chars=list(chars),
+        lines=_lines,
+        prev_scene_href=(
+            f"/scene/{season},{episode},{prev_scene}" if prev_scene else None
+        ),
+        next_scene_href=(
+            f"/scene/{season},{episode},{next_scene}" if next_scene else None
+        ),
+        base_url=_base_url(scope),
+    )
