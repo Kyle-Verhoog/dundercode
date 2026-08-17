@@ -85,6 +85,9 @@ bodies. State the finding, not the investigation that produced it.
 - Line numbers are positional and `/quote/{id}` URLs are those indices —
   **never add or remove lines**, or every shared link points at a
   different quote.
+- `Line` is a `NamedTuple`, so anything unpacking it positionally breaks
+  when a field is added. Views take plain tuples built at the call site
+  for exactly that reason — keep that boundary.
 - **Scene numbering has holes.** Some scene numbers within an episode
   have no lines at all — the rows are absent upstream, not filtered by
   us. So a scene's neighbour is not `scene±1`; use
@@ -123,6 +126,21 @@ bodies. State the finding, not the investigation that produced it.
   `Donna` (Newton) vs `Donna Muraski`, and the celebrity cameos
   (`Jessica` vs `Jessica Alba`, `Mark` vs `Mark McGrath`, `Christian` vs
   `Christian Slater`). Check episode overlap before merging any pair.
+
+## Estimated air time (`dundercode.timing`)
+
+- `/quote/{id}` shows roughly how far into the episode a line lands. The
+  transcript has **no timecodes** — the offset is modelled from the
+  dialogue (speaking pace per word, a beat per line, a gap per scene
+  change), so ordering and proportion are trustworthy but a single
+  timestamp is not. Always present it as an estimate.
+- Deleted lines are left off the clock entirely (`estimate_offset`
+  returns `None`) and the page says so instead. They never aired, and
+  since they mostly sit after the aired scenes, counting them would drag
+  every later estimate forward.
+- Constants are calibrated against the transcript so the median episode
+  lands near a 30-minute slot's ~21:30 of content. Recalibrate by
+  adjusting the pace, not by adding a fudge factor.
 
 ## AI scene context (`dundercode.ai.scene_context`)
 

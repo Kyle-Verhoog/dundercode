@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple
 import ddtrace
 
 from . import ogimage
+from . import timing
 from .html import Html
 
 
@@ -141,6 +142,8 @@ def quote(
     chars: List[str],
     quote: str,
     scene_context: Optional[str] = None,
+    offset_seconds: Optional[float] = None,
+    deleted: bool = False,
     base_url: str = "",
 ) -> Html:
     h = _base_page()
@@ -172,6 +175,9 @@ def quote(
         span.set_tag("leash.unfurl.og_description_len", len(og_description))
         span.set_tag("leash.unfurl.has_og_image", True)
         span.set_tag("leash.quote.has_scene_context", bool(scene_context))
+        span.set_tag("leash.quote.deleted", str(deleted).lower())
+        if offset_seconds is not None:
+            span.set_tag("leash.quote.timestamp_sec", offset_seconds)
 
     with h.tag("head"):
         with h.tag("title"):
@@ -196,6 +202,18 @@ def quote(
     with h.tag("body"):
         with h.tag("h2"):
             h.text(f"{speakers} (S{season}E{episode})")
+        # Estimated, never claimed as a timecode: the transcript has none.
+        if offset_seconds is not None:
+            with h.tag("p", style="color:#555;margin:0 0 0.5em 0;"):
+                with h.tag(
+                    "small",
+                    title="Estimated from dialogue pacing — the transcript has no timecodes.",
+                ):
+                    h.text(f"≈ {timing.format_offset(offset_seconds)} into the episode")
+        elif deleted:
+            with h.tag("p", style="color:#555;margin:0 0 0.5em 0;"):
+                with h.tag("small"):
+                    h.text("deleted scene — not in the aired episode")
         if scene_context:
             with h.tag("p", style="color:#555;font-style:italic;margin:0 0 0.5em 0;"):
                 with h.tag("small"):

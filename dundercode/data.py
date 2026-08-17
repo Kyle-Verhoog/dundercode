@@ -24,6 +24,7 @@ class Line(NamedTuple):
     scene: int
     speakers: List[str]
     line: str
+    deleted: bool
 
 
 def _read_data() -> List[Line]:
@@ -43,7 +44,17 @@ def _read_data() -> List[Line]:
         chars = [c.strip() for c in chars]
         line = split[3:-2]
         line = ",".join(line).strip('"')
-        data.append(Line(lineno, int(season), int(ep), int(scene), chars, line))
+        data.append(
+            Line(
+                lineno,
+                int(season),
+                int(ep),
+                int(scene),
+                chars,
+                line,
+                deleted.strip().upper() == "TRUE",
+            )
+        )
     return data
 
 
@@ -75,6 +86,12 @@ def get_lines_for_scene(season: int, episode: int, scene: int) -> Iterable[Line]
     return _lines_iter(
         lambda l: l.scene == scene and l.episode == episode and l.season == season
     )
+
+
+@functools.lru_cache(maxsize=None)
+def get_lines_for_episode(season: int, episode: int) -> Tuple[Line, ...]:
+    """Every line of an episode, aired and deleted, in transcript order."""
+    return tuple(l for l in _lines if l.season == season and l.episode == episode)
 
 
 @functools.lru_cache(maxsize=None)
